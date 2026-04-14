@@ -1381,9 +1381,6 @@ document.getElementById("btnAddPlant").addEventListener("click", function() {
 });
 
 // ─────────────────── Monster Library Editor ──────────
-const elMonsterLibraryList   = document.getElementById("monsterLibraryList");
-const elMonsterLibraryBody   = document.getElementById("monsterLibraryBody");
-const elMonsterLibraryToggle = document.getElementById("monsterLibraryToggle");
 
 elMonsterLibraryToggle.addEventListener("click", function() {
   const open = elMonsterLibraryBody.style.display === "none";
