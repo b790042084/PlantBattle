@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>植物战队对战模拟器</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="bg-grid"></div>
+    <main class="app">
+      <header class="topbar">
+        <h1>植物战队 可视化对战</h1>
+        <div class="controls">
+          <button id="btnStart">自动战斗</button>
+          <button id="btnStep">单步一回合</button>
+          <button id="btnReset" class="ghost">重置</button>
+          <button id="btnSaveConfig" class="ghost">保存配置</button>
+          <button id="btnLoadConfig" class="ghost">加载配置</button>
+          <label>
+            速度
+            <input id="speed" type="range" min="150" max="1200" step="50" value="500" />
+          </label>
+        </div>
+        <div class="hud">
+          <div class="chip">回合 <strong id="roundNum">0</strong></div>
+          <div class="chip">状态 <strong id="battleState">待命</strong></div>
+          <div class="chip">存活 <strong id="aliveInfo">3 vs 3</strong></div>
+        </div>
+        <div class="legend">
+          <span class="legend-item"><span class="badge badge-shield"><span class="badge-icon">🛡</span><span class="badge-value">x</span></span> 护盾值</span>
+          <span class="legend-item"><span class="badge badge-poison"><span class="badge-icon">💧</span><span class="badge-value">x</span></span> 中毒回合</span>
+          <span class="legend-item"><span class="badge badge-slow"><span class="badge-icon">❄</span><span class="badge-value">x</span></span> 减速回合</span>
+        </div>
+      </header>
+
+      <section class="arena" id="arena">
+        <div class="team-wrap">
+          <h2>我的植物队</h2>
+          <div id="teamA" class="team-row"></div>
+        </div>
+        <div class="team-wrap">
+          <h2>敌方植物队</h2>
+          <div id="teamB" class="team-row"></div>
+        </div>
+        <div id="fxLayer" class="fx-layer"></div>
+      </section>
+
+      <section class="panel">
+        <h3>战队配置面板（先选阵容，再开打）</h3>
+        <!-- 阵容选择 -->
+        <div class="slot-picker-grid">
+          <div>
+            <h4>我的植物队</h4>
+            <div id="slotPickerA" class="slot-picker-rows"></div>
+          </div>
+          <div>
+            <h4>敌方植物队</h4>
+            <div id="slotPickerB" class="slot-picker-rows"></div>
+          </div>
+        </div>
+        <div class="editor-actions">
+          <button id="btnApplyConfig">应用配置并重置</button>
+        </div>
+        <!-- 植物库 -->
+        <div class="library-section">
+          <div class="library-header">
+            <h4>植物库</h4>
+            <button id="btnAddPlant" class="ghost">＋ 添加植物</button>
+          </div>
+          <div id="plantLibraryList" class="library-list"></div>
+        </div>
+        <div class="tuning-grid">
+          <div class="tuning-card">
+            <h4>特效强度参数</h4>
+            <div class="tuning-fields">
+              <label>中毒回合<input id="setPoisonTurns" type="number" min="1" step="1" value="2" /></label>
+              <label>中毒系数<input id="setPoisonScale" type="number" min="0.05" step="0.05" value="0.25" /></label>
+              <label>护盾系数<input id="setShieldScale" type="number" min="0.2" step="0.1" value="1.2" /></label>
+              <label>减速回合<input id="setSlowTurns" type="number" min="1" step="1" value="1" /></label>
+            </div>
+          </div>
+          <div class="tuning-card">
+            <h4>批量模拟（快速平衡）</h4>
+            <div class="tuning-fields">
+              <label>模拟次数<input id="simTimes" type="number" min="10" step="10" value="200" /></label>
+            </div>
+            <div class="editor-actions">
+              <button id="btnSimulateBatch">运行批量模拟</button>
+            </div>
+            <p id="simResult" class="sim-result">尚未运行</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="charts">
+        <article class="panel">
+          <h3>总HP趋势</h3>
+          <canvas id="hpChart" width="900" height="240"></canvas>
+        </article>
+        <article class="panel">
+          <h3>每回合伤害</h3>
+          <canvas id="dmgChart" width="900" height="240"></canvas>
+        </article>
+      </section>
+
+      <section class="panel log-panel">
+        <div class="log-head">
+          <h3>战斗日志</h3>
+          <button id="btnClearLog" class="ghost">清空日志</button>
+        </div>
+        <div id="log"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
