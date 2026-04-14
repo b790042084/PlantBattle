@@ -172,13 +172,12 @@ label {
 .spawned-plant {
   position: absolute;
   transform: translate(-50%, -50%);
-  cursor: pointer;
   text-align: center;
   z-index: 2;
   transition: transform .15s ease, opacity .35s ease;
   animation: popIn 300ms cubic-bezier(.34,1.56,.64,1) both;
+  pointer-events: none;
 }
-.spawned-plant:hover { transform: translate(-50%, -50%) scale(1.18); }
 .spawned-plant.collected { opacity: 0; transform: translate(-50%, -80%) scale(.5); pointer-events: none; }
 
 .spawned-plant img {
@@ -201,6 +200,18 @@ label {
   border-radius: 999px;
   padding: 1px 7px;
   white-space: nowrap;
+}
+
+/* Player character in collection zone */
+.player-character {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 40px;
+  z-index: 10;
+  pointer-events: none;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,.3));
+  transition: none;
+  user-select: none;
 }
 
 /* ===== BATTLE WRAPPER (monster zone + planting zone) ===== */

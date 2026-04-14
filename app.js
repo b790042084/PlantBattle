@@ -146,7 +146,30 @@ const gs = {
   lastFrame:  0,
   lastCombat: 0,
   lastPoison: 0,
+
+  // Player character for collection
+  player: {
+    x: 50,  // percentage
+    y: 50,  // percentage
+    size: 40, // px
+    speed: 0.8, // percentage per frame at 60fps
+  },
+  keys: {},
 };
+
+// ─────────────────── Keyboard Controls ───────────────
+document.addEventListener("keydown", function(e) {
+  const key = e.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+    e.preventDefault();
+    gs.keys[key] = true;
+  }
+});
+
+document.addEventListener("keyup", function(e) {
+  const key = e.key.toLowerCase();
+  gs.keys[key] = false;
+});
 
 // ─────────────────── Logging ─────────────────────────
 function addLog(text, type) {
@@ -321,6 +344,71 @@ function renderBackpack() {
 }
 
 // ─────────────────── Collection Zone ─────────────────
+let elPlayer = null;
+
+function createPlayer() {
+  if (elPlayer) elPlayer.remove();
+  elPlayer = document.createElement("div");
+  elPlayer.className = "player-character";
+  elPlayer.textContent = "🧑";
+  elCollect.appendChild(elPlayer);
+  updatePlayerPosition();
+}
+
+function updatePlayerPosition() {
+  if (!elPlayer) return;
+  elPlayer.style.left = gs.player.x + "%";
+  elPlayer.style.top = gs.player.y + "%";
+}
+
+function movePlayer() {
+  if (gs.phase !== "day") return;
+
+  let dx = 0;
+  let dy = 0;
+
+  // Check keys
+  if (gs.keys["arrowup"] || gs.keys["w"]) dy -= 1;
+  if (gs.keys["arrowdown"] || gs.keys["s"]) dy += 1;
+  if (gs.keys["arrowleft"] || gs.keys["a"]) dx -= 1;
+  if (gs.keys["arrowright"] || gs.keys["d"]) dx += 1;
+
+  // Normalize diagonal movement
+  if (dx !== 0 && dy !== 0) {
+    dx *= 0.707;
+    dy *= 0.707;
+  }
+
+  // Update position with boundaries
+  gs.player.x = Math.max(5, Math.min(95, gs.player.x + dx * gs.player.speed));
+  gs.player.y = Math.max(5, Math.min(95, gs.player.y + dy * gs.player.speed));
+
+  updatePlayerPosition();
+  checkPlantCollisions();
+}
+
+function checkPlantCollisions() {
+  if (gs.phase !== "day") return;
+
+  const collectionRect = elCollect.getBoundingClientRect();
+  const playerSize = gs.player.size;
+  const playerX = (gs.player.x / 100) * collectionRect.width;
+  const playerY = (gs.player.y / 100) * collectionRect.height;
+
+  for (let i = gs.spawned.length - 1; i >= 0; i--) {
+    const sp = gs.spawned[i];
+    const plantX = parseFloat(sp.el.style.left) / 100 * collectionRect.width;
+    const plantY = parseFloat(sp.el.style.top) / 100 * collectionRect.height;
+
+    const dist = Math.sqrt(Math.pow(playerX - plantX, 2) + Math.pow(playerY - plantY, 2));
+    const collectDist = playerSize;
+
+    if (dist < collectDist) {
+      collectPlant(sp.id);
+    }
+  }
+}
+
 function spawnCollectionPlant() {
   if (gs.phase !== "day") return;
   if (gs.spawned.length >= MAX_SPAWNED) return;
@@ -348,9 +436,8 @@ function spawnCollectionPlant() {
 
   el.appendChild(img);
   el.appendChild(lbl);
-  el.addEventListener("click", function() { collectPlant(id); });
   elCollect.appendChild(el);
-  gs.spawned.push({ id: id, plantIdx: plantIdx, el: el });
+  gs.spawned.push({ id: id, plantIdx: plantIdx, el: el, x: x, y: y });
 
   setTimeout(function() {
     const idx = gs.spawned.findIndex(function(s) { return s.id === id; });
@@ -372,12 +459,23 @@ function collectPlant(id) {
 }
 
 // ─────────────────── Day Phase ───────────────────────
+let playerMoveInterval = null;
+
 function startDay() {
   gs.phase   = "day";
   gs.phaseLeft = DAY_DURATION;
   gs.spawned = [];
+  gs.player.x = 50;
+  gs.player.y = 50;
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
+
+  // Create player character
+  createPlayer();
+
+  // Start player movement loop
+  if (playerMoveInterval) clearInterval(playerMoveInterval);
+  playerMoveInterval = setInterval(movePlayer, 16); // ~60fps
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
@@ -399,6 +497,14 @@ function startDay() {
 function endDay() {
   clearInterval(gs.spawnHandle);
   gs.spawnHandle = null;
+  if (playerMoveInterval) {
+    clearInterval(playerMoveInterval);
+    playerMoveInterval = null;
+  }
+  if (elPlayer) {
+    elPlayer.remove();
+    elPlayer = null;
+  }
   gs.spawned.forEach(function(s) { s.el.remove(); });
   gs.spawned     = [];
   gs.selectedId  = null;
