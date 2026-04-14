@@ -137,7 +137,7 @@ label {
 .collection-zone {
   position: relative;
   margin-top: 14px;
-  height: 400px;
+  height: 800px;
   border-radius: 14px;
   border: 2px solid #88c0e8;
   background:
@@ -202,8 +202,8 @@ label {
 .spawned-plant.collected { opacity: 0; transform: translate(-50%, -80%) scale(.5); pointer-events: none; }
 
 .spawned-plant img {
-  width: 62px;
-  height: 62px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: 3px solid #fff;
   box-shadow: 0 4px 14px rgba(0,0,0,.22);
@@ -684,7 +684,7 @@ label {
 /* ===== RESPONSIVE ===== */
 @media (max-width: 700px) {
   h1 { font-size: 20px; }
-  .collection-zone { height: 200px; }
+  .collection-zone { height: 400px; }
   .monster-zone-bg { height: 90px; }
   .planting-zone-bg { height: 200px; }
   .battle-area { height: 290px; }
