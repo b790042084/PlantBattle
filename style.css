@@ -137,12 +137,12 @@ label {
 .collection-zone {
   position: relative;
   margin-top: 14px;
-  height: 280px;
+  height: 400px;
   border-radius: 14px;
   border: 2px solid #88c0e8;
   background:
     repeating-linear-gradient(
-      0deg,
+      180deg,
       #ffffff 0%,
       #ffffff 20%,
       #333333 20%,

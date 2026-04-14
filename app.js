@@ -169,11 +169,13 @@ document.addEventListener("keydown", function(e) {
     e.preventDefault();
     gs.keys[key] = true;
   }
-  // Jump with spacebar
-  if (key === " " && gs.phase === "day" && !gs.player.isJumping) {
+  // Jump with spacebar - always prevent default to avoid page scroll
+  if (key === " ") {
     e.preventDefault();
-    gs.player.isJumping = true;
-    gs.player.jumpProgress = 0;
+    if (gs.phase === "day" && !gs.player.isJumping) {
+      gs.player.isJumping = true;
+      gs.player.jumpProgress = 0;
+    }
   }
 });
 
