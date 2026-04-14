@@ -2,12 +2,12 @@ const STORAGE_KEY = "plant-battle-config-v3";
 
 // 植物库 —— 所有可供选择的植物
 const plantLibrary = [
-  { name: "坚果墙", role: "defender", hp: 1800, atk: 60, df: 80, crit: 0.1, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
-  { name: "豌豆射手", role: "attacker", hp: 900, atk: 180, df: 30, crit: 0.2, critDmg: 1.5, dodge: 0.0, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal" },
-  { name: "寒冰射手", role: "attacker", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.0, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow" },
-  { name: "铁桶坚果", role: "defender", hp: 2000, atk: 70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
-  { name: "毒液花", role: "attacker", hp: 850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.0, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison" },
-  { name: "机枪豌豆", role: "attacker", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.0, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal" }
+  { name: "坚果墙", image: "", role: "defender", attackMode: "melee", hp: 1800, atk: 60, df: 80, crit: 0.1, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
+  { name: "豌豆射手", image: "", role: "attacker", attackMode: "ranged", hp: 900, atk: 180, df: 30, crit: 0.2, critDmg: 1.5, dodge: 0.0, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal" },
+  { name: "寒冰射手", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.0, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow" },
+  { name: "铁桶坚果", image: "", role: "defender", attackMode: "melee", hp: 2000, atk: 70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
+  { name: "毒液花", image: "", role: "attacker", attackMode: "area", hp: 850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.0, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison" },
+  { name: "机枪豌豆", image: "", role: "attacker", attackMode: "ranged", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.0, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal" }
 ];
 
 // 阵容索引：每队3个位置，值为 plantLibrary 下标
@@ -40,7 +40,9 @@ const state = {
 
 const fields = [
   { key: "name", label: "名字", type: "text" },
+  { key: "image", label: "图片URL", type: "text" },
   { key: "role", label: "定位", type: "select" },
+  { key: "attackMode", label: "攻击方式", type: "select" },
   { key: "hp", label: "HP", type: "number", step: "1" },
   { key: "atk", label: "ATK", type: "number", step: "1" },
   { key: "df", label: "DEF", type: "number", step: "1" },
@@ -93,6 +95,43 @@ const el = {
 function toNumber(value, fallback) {
   const v = Number(value);
   return Number.isFinite(v) ? v : fallback;
+}
+
+function roleLabel(role) {
+  if (role === "defender") return "防御";
+  if (role === "support") return "辅助";
+  return "输出";
+}
+
+function attackModeLabel(mode) {
+  if (mode === "melee") return "近战突进";
+  if (mode === "area") return "范围爆发";
+  return "远程弹道";
+}
+
+function escapeHtml(text) {
+  return String(text ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function buildFallbackImage(name, role) {
+  const bg = role === "defender" ? "#8d6e63" : role === "support" ? "#6c5ce7" : "#2b8a3e";
+  const glow = role === "defender" ? "#d7b899" : role === "support" ? "#c0b7ff" : "#b7f0c1";
+  const text = escapeHtml((name || "植物").slice(0, 2));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${bg}"/><stop offset="100%" stop-color="${glow}"/></linearGradient></defs><rect width="180" height="180" rx="28" fill="url(#g)"/><circle cx="90" cy="74" r="34" fill="rgba(255,255,255,0.35)"/><rect x="38" y="112" width="104" height="28" rx="14" fill="rgba(16,24,32,0.18)"/><text x="90" y="129" font-size="22" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif">${text}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function getPlantImage(p) {
+  return p.image && String(p.image).trim() ? String(p.image).trim() : buildFallbackImage(p.name, p.role);
+}
+
+function getAttackMode(p) {
+  return p.attackMode || (p.role === "defender" ? "melee" : "ranged");
 }
 
 function clonePlant(p) {
@@ -163,43 +202,94 @@ function readSettingInputs() {
   syncSettingInputs();
 }
 
+function getFighterNode(teamKey, slot) {
+  return document.querySelector(`.fighter[data-team="${teamKey}"][data-slot="${slot}"]`);
+}
+
+function getNodeCenter(node) {
+  const arenaRect = el.arena.getBoundingClientRect();
+  const rect = node.getBoundingClientRect();
+  return {
+    x: rect.left + rect.width / 2 - arenaRect.left,
+    y: rect.top + rect.height / 2 - arenaRect.top
+  };
+}
+
 function fireProjectile(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
-  const source = document.querySelector(`.card[data-team="${teamKeyFrom}"][data-slot="${slotFrom}"]`);
-  const target = document.querySelector(`.card[data-team="${teamKeyTo}"][data-slot="${slotTo}"]`);
+  const source = getFighterNode(teamKeyFrom, slotFrom);
+  const target = getFighterNode(teamKeyTo, slotTo);
   if (!source || !target) return;
 
-  const arenaRect = el.arena.getBoundingClientRect();
-  const a = source.getBoundingClientRect();
-  const b = target.getBoundingClientRect();
-
-  const x1 = `${a.left + a.width / 2 - arenaRect.left}px`;
-  const y1 = `${a.top + a.height / 2 - arenaRect.top}px`;
-  const x2 = `${b.left + b.width / 2 - arenaRect.left}px`;
-  const y2 = `${b.top + b.height / 2 - arenaRect.top}px`;
+  const a = getNodeCenter(source);
+  const b = getNodeCenter(target);
 
   const dot = document.createElement("div");
   dot.className = `projectile ${isSkill ? "skill" : "normal"}`;
-  dot.style.setProperty("--x1", x1);
-  dot.style.setProperty("--y1", y1);
-  dot.style.setProperty("--x2", x2);
-  dot.style.setProperty("--y2", y2);
+  dot.style.setProperty("--x1", `${a.x}px`);
+  dot.style.setProperty("--y1", `${a.y}px`);
+  dot.style.setProperty("--x2", `${b.x}px`);
+  dot.style.setProperty("--y2", `${b.y}px`);
   dot.style.setProperty("--dur", `${Math.max(180, Number(el.speed.value) * 0.45)}ms`);
 
   el.fxLayer.appendChild(dot);
   dot.addEventListener("animationend", () => dot.remove(), { once: true });
 }
 
-function fireStatusFx(teamKey, slot, type) {
-  const target = document.querySelector(`.card[data-team="${teamKey}"][data-slot="${slot}"]`);
+function fireMeleeFx(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
+  const source = getFighterNode(teamKeyFrom, slotFrom);
+  const target = getFighterNode(teamKeyTo, slotTo);
+  if (!source || !target) return;
+
+  const a = getNodeCenter(source);
+  const b = getNodeCenter(target);
+
+  const slash = document.createElement("div");
+  slash.className = `melee-fx ${isSkill ? "skill" : "normal"}`;
+  slash.style.setProperty("--x1", `${a.x}px`);
+  slash.style.setProperty("--y1", `${a.y}px`);
+  slash.style.setProperty("--x2", `${b.x}px`);
+  slash.style.setProperty("--y2", `${b.y}px`);
+  slash.style.setProperty("--dur", `${Math.max(220, Number(el.speed.value) * 0.55)}ms`);
+  el.fxLayer.appendChild(slash);
+  slash.addEventListener("animationend", () => slash.remove(), { once: true });
+}
+
+function fireAreaFx(teamKey, slot, isSkill) {
+  const target = getFighterNode(teamKey, slot);
   if (!target) return;
 
-  const arenaRect = el.arena.getBoundingClientRect();
-  const b = target.getBoundingClientRect();
+  const point = getNodeCenter(target);
+  const burst = document.createElement("div");
+  burst.className = `area-fx ${isSkill ? "skill" : "normal"}`;
+  burst.style.left = `${point.x}px`;
+  burst.style.top = `${point.y}px`;
+  burst.style.setProperty("--dur", `${Math.max(240, Number(el.speed.value) * 0.55)}ms`);
+  el.fxLayer.appendChild(burst);
+  burst.addEventListener("animationend", () => burst.remove(), { once: true });
+}
 
+function playAttackFx(attacker, teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
+  const mode = getAttackMode(attacker);
+  if (mode === "melee") {
+    fireMeleeFx(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill);
+    return;
+  }
+  if (mode === "area") {
+    fireAreaFx(teamKeyTo, slotTo, isSkill);
+    return;
+  }
+  fireProjectile(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill);
+}
+
+function fireStatusFx(teamKey, slot, type) {
+  const target = getFighterNode(teamKey, slot);
+  if (!target) return;
+
+  const point = getNodeCenter(target);
   const pulse = document.createElement("div");
   pulse.className = `status-fx ${type}`;
-  pulse.style.left = `${b.left + b.width / 2 - arenaRect.left}px`;
-  pulse.style.top = `${b.top + b.height / 2 - arenaRect.top}px`;
+  pulse.style.left = `${point.x}px`;
+  pulse.style.top = `${point.y}px`;
   el.fxLayer.appendChild(pulse);
   pulse.addEventListener("animationend", () => pulse.remove(), { once: true });
 }
@@ -297,8 +387,9 @@ function attack(attacker, attackerTeamKey, attackerSlot, enemyTeam, enemyTeamKey
     attacker.currentCd -= 1;
   }
 
-  if (withFx) fireProjectile(attackerTeamKey, attackerSlot, enemyTeamKey, targetSlot, usingSkill);
+  if (withFx) playAttackFx(attacker, attackerTeamKey, attackerSlot, enemyTeamKey, targetSlot, usingSkill);
 
+  const attackMode = getAttackMode(attacker);
   const baseDamage = Math.floor(attacker.atk * coef);
 
   if (Math.random() < target.dodge) {
@@ -332,7 +423,25 @@ function attack(attacker, attackerTeamKey, attackerSlot, enemyTeam, enemyTeamKey
     applySkillEffect(attacker, target, attackerTeamKey, attackerSlot, enemyTeamKey, targetSlot, withFx);
   }
 
-  return real;
+  let splashTotal = 0;
+  if (attackMode === "area") {
+    enemyTeam.forEach((unit, idx) => {
+      if (unit === target || unit.hp <= 0) return;
+      const splashRaw = Math.max(1, Math.floor(baseDamage * (usingSkill ? 0.55 : 0.35)) - unit.df);
+      const splashBlocked = absorbWithShield(unit, splashRaw);
+      const splashReal = Math.min(unit.hp, splashBlocked.remain);
+      unit.hp = Math.max(0, unit.hp - splashReal);
+      unit.justHit = true;
+      splashTotal += splashReal;
+      if (withFx && splashReal > 0) fireStatusFx(enemyTeamKey, idx + 1, "area");
+    });
+
+    if (withFx && splashTotal > 0) {
+      appendLog(`${attacker.name} 的范围冲击波及其余目标，额外造成 ${splashTotal} 点伤害`, "crit");
+    }
+  }
+
+  return real + splashTotal;
 }
 
 function stepRound() {
@@ -433,28 +542,39 @@ function startAuto() {
 
 function plantCard(p, slot, teamKey) {
   const ratio = Math.max(0, p.hp) / p.maxHp;
-  const roleText = p.role === "defender" ? "防御" : p.role === "attacker" ? "输出" : "辅助";
+  const roleText = roleLabel(p.role);
   const allowSwap = canSwap();
   const status = [];
-  if (p.shield > 0) status.push(`护盾:${p.shield}`);
-  if (p.poisonTurns > 0) status.push(`中毒:${p.poisonTurns}`);
-  if (p.slowTurns > 0) status.push(`减速:${p.slowTurns}`);
+  if (p.shield > 0) status.push(`盾 ${p.shield}`);
+  if (p.poisonTurns > 0) status.push(`毒 ${p.poisonTurns}`);
+  if (p.slowTurns > 0) status.push(`缓 ${p.slowTurns}`);
 
   const badges = [];
   if (p.shield > 0) badges.push(`<span class="badge badge-shield" title="护盾"><span class="badge-icon">${iconSvg("shield")}</span><span class="badge-value">${p.shield}</span></span>`);
   if (p.poisonTurns > 0) badges.push(`<span class="badge badge-poison" title="中毒"><span class="badge-icon">${iconSvg("poison")}</span><span class="badge-value">${p.poisonTurns}</span></span>`);
   if (p.slowTurns > 0) badges.push(`<span class="badge badge-slow" title="减速"><span class="badge-icon">${iconSvg("slow")}</span><span class="badge-value">${p.slowTurns}</span></span>`);
 
+  const fallback = escapeHtml(buildFallbackImage(p.name, p.role));
+  const image = escapeHtml(getPlantImage(p));
+  const name = escapeHtml(p.name);
+
   return `
-    <div class="card ${p.hp <= 0 ? "dead" : ""} ${p.justHit ? "hit" : ""}" data-team="${teamKey}" data-slot="${slot}" draggable="${allowSwap ? "true" : "false"}">
+    <div class="fighter card ${p.hp <= 0 ? "dead" : ""} ${p.justHit ? "hit" : ""}" data-team="${teamKey}" data-slot="${slot}" draggable="${allowSwap ? "true" : "false"}">
+      <div class="fighter-slot">${slot}</div>
       <div class="status-badges">${badges.join("")}</div>
-      <div class="slot">${slot}号位 ${slot === 1 ? "(前排)" : ""}</div>
-      <div class="name">${p.name}</div>
-      <div class="meta">${roleText} | ATK ${p.atk} | DEF ${p.df}</div>
-      <div class="meta">技能: ${p.skillName}(${p.skillType || "normal"}) x${p.skillCoef} CD:${p.skillCd}</div>
-      <div class="meta">HP: ${Math.max(0, p.hp)} / ${p.maxHp}</div>
-      <div class="meta">状态: ${status.length ? status.join(" | ") : "无"}</div>
-      <div class="hpbar"><div class="hpfill" style="width:${ratio * 100}%"></div></div>
+      <div class="fighter-sprite-wrap">
+        <div class="fighter-shadow"></div>
+        <img class="fighter-sprite ${teamKey === "B" ? "enemy" : "ally"}" src="${image}" alt="${name}" onerror="this.onerror=null;this.src='${fallback}'" />
+      </div>
+      <div class="fighter-info">
+        <div class="name-row">
+          <div class="name">${name}</div>
+          <span class="role-chip">${roleText}</span>
+        </div>
+        <div class="meta">${slot}号位 · ${attackModeLabel(getAttackMode(p))}</div>
+        <div class="hpbar"><div class="hpfill" style="width:${ratio * 100}%"></div></div>
+        <div class="meta">HP ${Math.max(0, p.hp)} / ${p.maxHp} · ${status.length ? status.join(" · ") : "状态正常"}</div>
+      </div>
     </div>
   `;
 }
@@ -570,24 +690,31 @@ function renderSlotPicker(teamKey) {
 
 function renderLibrary() {
   el.plantLibraryList.innerHTML = plantLibrary.map((p, i) => {
-    const roleText = p.role === "defender" ? "防御" : p.role === "attacker" ? "输出" : "辅助";
+    const roleText = roleLabel(p.role);
     const formRows = fields.map(f => {
       const inputId = `lib-${i}-${f.key}`;
       if (f.type === "select") {
-        const pool = f.key === "role" ? ["defender", "attacker", "support"] : ["normal", "poison", "shield", "slow"];
-        const opts = pool.map(r => `<option value="${r}" ${p[f.key] === r ? "selected" : ""}>${r}</option>`).join("");
+        let pool = [];
+        if (f.key === "role") pool = [["defender", "防御"], ["attacker", "输出"], ["support", "辅助"]];
+        else if (f.key === "attackMode") pool = [["melee", "近战突进"], ["ranged", "远程弹道"], ["area", "范围爆发"]];
+        else pool = [["normal", "普通"], ["poison", "中毒"], ["shield", "护盾"], ["slow", "减速"]];
+        const opts = pool.map(([value, label]) => `<option value="${value}" ${p[f.key] === value ? "selected" : ""}>${label}</option>`).join("");
         return `<label>${f.label}<select id="${inputId}">${opts}</select></label>`;
       }
-      return `<label>${f.label}<input id="${inputId}" type="${f.type}" step="${f.step || "1"}" value="${p[f.key]}" /></label>`;
+      return `<label>${f.label}<input id="${inputId}" type="${f.type}" step="${f.step || "1"}" value="${escapeHtml(p[f.key] ?? "")}" /></label>`;
     }).join("");
+    const libImage = escapeHtml(getPlantImage(p));
+    const libFallback = escapeHtml(buildFallbackImage(p.name, p.role));
     return `<div class="library-item" data-idx="${i}">
       <div class="library-item-summary">
-        <span class="lib-name">${p.name}</span>
+        <img class="lib-thumb" src="${libImage}" alt="${escapeHtml(p.name)}" onerror="this.onerror=null;this.src='${libFallback}'" />
+        <span class="lib-name">${escapeHtml(p.name)}</span>
         <span class="lib-tag">${roleText}</span>
         <span class="lib-stat">HP ${p.hp}</span>
         <span class="lib-stat">ATK ${p.atk}</span>
         <span class="lib-stat">DEF ${p.df}</span>
-        <span class="lib-stat">技能: ${p.skillName}(${p.skillType})</span>
+        <span class="lib-stat">攻击: ${attackModeLabel(getAttackMode(p))}</span>
+        <span class="lib-stat">技能: ${escapeHtml(p.skillName)}(${p.skillType})</span>
         <div class="lib-actions">
           <button class="ghost btn-lib-edit" data-idx="${i}">编辑</button>
           <button class="btn-danger btn-lib-del" data-idx="${i}">删除</button>
@@ -616,16 +743,23 @@ function applyCompositionFromPicker(teamKey) {
 }
 
 function sanitizePlant(p) {
+  p.name = String(p.name || "植物").trim() || "植物";
+  p.image = String(p.image || "").trim();
+  if (!["defender", "attacker", "support"].includes(p.role)) p.role = "attacker";
   p.hp = Math.max(1, Math.floor(p.hp));
   p.atk = Math.max(1, Math.floor(p.atk));
   p.df = Math.max(0, Math.floor(p.df));
   p.crit = Math.min(1, Math.max(0, p.crit));
   p.critDmg = Math.max(1, p.critDmg);
   p.dodge = Math.min(0.95, Math.max(0, p.dodge));
+  p.skillName = String(p.skillName || "技能").trim() || "技能";
   p.skillCoef = Math.max(1, p.skillCoef);
   p.skillCd = Math.max(0, Math.floor(p.skillCd));
   if (!["normal", "poison", "shield", "slow"].includes(p.skillType)) p.skillType = "normal";
+  if (!["melee", "ranged", "area"].includes(p.attackMode)) p.attackMode = p.role === "defender" ? "melee" : "ranged";
 }
+
+plantLibrary.forEach(sanitizePlant);
 
 function saveConfig() {
   readSettingInputs();
@@ -650,6 +784,7 @@ function loadConfig() {
     const payload = JSON.parse(text);
     if (Array.isArray(payload.plantLibrary) && payload.plantLibrary.length >= 3) {
       plantLibrary.splice(0, plantLibrary.length, ...payload.plantLibrary);
+      plantLibrary.forEach(sanitizePlant);
     }
     if (Array.isArray(payload.teamCompositionA) && payload.teamCompositionA.length === 3) {
       teamCompositionA.splice(0, 3, ...payload.teamCompositionA);
@@ -719,6 +854,8 @@ function resetHitMarks() {
 }
 
 function render() {
+  el.teamA.className = "team-row team-a";
+  el.teamB.className = "team-row team-b";
   el.teamA.innerHTML = state.teamA.map((p, i) => plantCard(p, i + 1, "A")).join("");
   el.teamB.innerHTML = state.teamB.map((p, i) => plantCard(p, i + 1, "B")).join("");
 
@@ -749,7 +886,7 @@ function resetState() {
   state.battleState = "待命";
 
   el.log.innerHTML = "";
-  appendLog("已重置。规则：防御型植物仅在1号位时可拦截全队伤害。", "round");
+  appendLog("已重置。当前战场站位为 321 vs 123，防御型植物仅在1号位时可拦截全队伤害。", "round");
 
   syncSettingInputs();
   renderSlotPicker("A");
@@ -880,7 +1017,7 @@ document.addEventListener("drop", (evt) => {
 // ---- 植物库操作 ----
 el.btnAddPlant.addEventListener("click", () => {
   const newPlant = {
-    name: "新植物", role: "attacker", hp: 1000, atk: 150, df: 40,
+    name: "新植物", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40,
     crit: 0.15, critDmg: 1.5, dodge: 0.0,
     skillName: "技能", skillCoef: 1.5, skillCd: 2, skillType: "normal"
   };
