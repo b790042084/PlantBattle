@@ -160,6 +160,7 @@ const gs = {
   keys: {},
   waves: [], // active waves in collection zone
   waveSpawnTimer: 0,
+  waveHitCooldown: 0, // timestamp until which player is immune to wave damage (0 = no immunity)
 };
 
 // ─────────────────── Keyboard Controls ───────────────
@@ -456,20 +457,19 @@ function updateWaves() {
 function checkWaveCollisions() {
   if (gs.phase !== "day") return;
 
-  const playerRow = gs.player.row;
-  const isOnWhiteRow = playerRow % 2 === 0; // Even rows are white (0, 2, 4)
-
-  if (isOnWhiteRow) return; // Safe on white rows
+  // Invincibility window after being hit - prevents multiple hits from one wave
+  if (performance.now() < gs.waveHitCooldown) return;
 
   const playerY = gs.player.y;
 
   for (const wave of gs.waves) {
-    // Check if wave is at player's position (±5% tolerance)
+    // Check if wave is at player's position (±8% tolerance)
     if (Math.abs(wave.y - playerY) < 8) {
-      // Hit by wave on black row - reset to start
+      // Hit by wave - reset to start and grant 1.5s of immunity
       gs.player.x = 50;
       gs.player.row = 2;
       gs.player.y = 50;
+      gs.waveHitCooldown = performance.now() + 1500;
       updatePlayerPosition();
       addLog("被海浪击中！回到起点", "dodge");
       break;
@@ -562,6 +562,7 @@ function startDay() {
   gs.player.y = 50;
   gs.player.row = 2;
   gs.player.isJumping = false;
+  gs.waveHitCooldown = 0;
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   elCollect.querySelectorAll(".wave").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
