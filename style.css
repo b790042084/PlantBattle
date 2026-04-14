@@ -295,6 +295,33 @@ label {
   100% { transform: translateY(-3px); }
 }
 
+/* Fly-to-backpack animation element */
+.fly-to-backpack {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+}
+.fly-to-backpack img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  background: #fff;
+  object-fit: cover;
+}
+
+/* New item pop-in animation in backpack */
+.bp-item-new {
+  animation: bpPopIn 0.4s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes bpPopIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* Wave animation in collection zone */
 .wave {
   position: absolute;

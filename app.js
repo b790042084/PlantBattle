@@ -449,12 +449,56 @@ function renderCarriedPlants() {
 function depositCarriedPlants() {
   if (gs.carried.length === 0) return;
   const names = gs.carried.map(function(c) { return plantLibrary[c.plantIdx].name; });
-  gs.carried.forEach(function(c) {
-    gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
-  });
+  const toDeposit = gs.carried.slice();
   gs.carried = [];
   renderCarriedPlants();
-  renderBackpack();
+
+  // Animate each plant flying from player to backpack
+  const playerRect = elPlayer ? elPlayer.getBoundingClientRect() : null;
+  const bpRect = elBackpackItems.getBoundingClientRect();
+
+  toDeposit.forEach(function(c, i) {
+    const pDef = plantLibrary[c.plantIdx];
+    // Create flying element
+    const fly = document.createElement("div");
+    fly.className = "fly-to-backpack";
+    const img = document.createElement("img");
+    img.src = getImg(pDef);
+    img.onerror = function() { img.src = buildSvgFallback(pDef.name, pDef.role); };
+    fly.appendChild(img);
+    document.body.appendChild(fly);
+
+    // Start position: player head
+    const startX = playerRect ? playerRect.left + playerRect.width / 2 : window.innerWidth / 2;
+    const startY = playerRect ? playerRect.top : window.innerHeight / 2;
+    // End position: backpack area
+    const endX = bpRect.left + Math.min(40 + i * 50, bpRect.width - 20);
+    const endY = bpRect.top + bpRect.height / 2;
+
+    fly.style.left = startX + "px";
+    fly.style.top = startY + "px";
+
+    // Stagger the animation slightly for each plant
+    setTimeout(function() {
+      fly.style.transition = "left 0.5s cubic-bezier(.2,.8,.3,1), top 0.5s cubic-bezier(.2,.8,.3,1), transform 0.5s ease, opacity 0.5s ease";
+      fly.style.left = endX + "px";
+      fly.style.top = endY + "px";
+      fly.style.transform = "translate(-50%,-50%) scale(0.5)";
+      fly.style.opacity = "0.3";
+    }, i * 80);
+
+    // Remove flying element and add to backpack after animation
+    setTimeout(function() {
+      fly.remove();
+      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
+      renderBackpack();
+      // Mark the last added item for pop animation
+      const items = elBackpackItems.querySelectorAll(".bp-item");
+      const lastItem = items[items.length - 1];
+      if (lastItem) lastItem.classList.add("bp-item-new");
+    }, i * 80 + 520);
+  });
+
   addLog("回到出生区！存入背包：" + names.join("、"), "end");
 }
 
