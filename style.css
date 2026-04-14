@@ -141,18 +141,12 @@ label {
   border-radius: 14px;
   border: 2px solid #88c0e8;
   background:
-    repeating-linear-gradient(
-      180deg,
-      #ffffff 0%,
-      #ffffff 20%,
-      #333333 20%,
-      #333333 40%,
-      #ffffff 40%,
-      #ffffff 60%,
-      #333333 60%,
-      #333333 80%,
-      #ffffff 80%,
-      #ffffff 100%
+    linear-gradient(180deg,
+      #ffffff 0%, #ffffff 20%,
+      #333333 20%, #333333 40%,
+      #ffffff 40%, #ffffff 60%,
+      #333333 60%, #333333 80%,
+      #ffffff 80%, #ffffff 100%
     );
   overflow: hidden;
 }
