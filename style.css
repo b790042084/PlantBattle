@@ -297,25 +297,6 @@ label {
   background: #5f3dc4;
 }
 
-.card-tools {
-  margin-top: 8px;
-  display: flex;
-  gap: 6px;
-}
-
-.btn-swap {
-  padding: 4px 8px;
-  font-size: 12px;
-  background: #386b8e;
-}
-
-.btn-swap:disabled {
-  background: #adb5bd;
-  cursor: not-allowed;
-  transform: none;
-  filter: none;
-}
-
 .meta {
   font-size: 13px;
   color: var(--muted);
