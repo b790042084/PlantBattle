@@ -161,6 +161,21 @@ label {
   overflow: hidden;
 }
 
+/* Dark fog overlay for night phase */
+.collection-zone::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  z-index: 20;
+  border-radius: inherit;
+  transition: background 1.5s ease;
+}
+.collection-zone.fog-active::after {
+  background: rgba(0, 0, 0, 0.75);
+}
+
 .zone-label {
   position: absolute;
   top: 50%;

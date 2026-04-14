@@ -763,6 +763,9 @@ function startDay() {
   gs.player.y = 95;    // Start at bottom
   gs.player.row = SPAWN_ROW;  // Spawn zone row
   gs.player.isJumping = false;
+
+  // Remove dark fog
+  elCollect.classList.remove("fog-active");
   gs.waveHitCooldown = 0;
   addLog("[DEBUG] startDay 开始初始化", "round");
   console.log("[DEBUG] elCollect:", elCollect);
@@ -938,6 +941,8 @@ function startNight() {
   gs.lastCombat = performance.now();
   gs.lastPoison = performance.now();
   if (elCollectHint) elCollectHint.style.display = "none";
+  // Add dark fog over collection zone
+  elCollect.classList.add("fog-active");
   updateHUD();
   addLog("════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物 ════", "round");
   gs.animId = requestAnimationFrame(nightLoop);
