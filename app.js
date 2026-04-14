@@ -26,6 +26,37 @@ const monsterTypes = [
   { name: "巨型僵尸", emoji: "👾", hp: 1100, atk:  80, speed: 0.13, attackInterval: 2500, reward: 40 },
 ];
 
+// ─────────────────── Wave Types ─────────────────────
+const waveTypes = [
+  { name: "缓慢海浪", speed: 0.2,  spawnInterval: 7000, weight: 20 },
+  { name: "普通海浪", speed: 0.4,  spawnInterval: 5000, weight: 50 },
+  { name: "快速海浪", speed: 0.6,  spawnInterval: 3500, weight: 20 },
+  { name: "极速海浪", speed: 0.9,  spawnInterval: 2000, weight: 10 },
+];
+
+function sanitizeWave(w) {
+  w.name          = String(w.name || "海浪").trim() || "海浪";
+  w.speed         = Math.max(0.05,            toNum(w.speed,  0.4));
+  w.spawnInterval = Math.max(500, Math.floor(toNum(w.spawnInterval, 5000)));
+  w.weight        = Math.max(0,   Math.floor(toNum(w.weight,   50)));
+}
+waveTypes.forEach(sanitizeWave);
+
+// ─────────────────── Plant Spawn Configs ───────────────
+const plantSpawnConfigs = [
+  { name: "缓慢刷新", spawnInterval: 8000,  weight: 15 },
+  { name: "普通刷新", spawnInterval: 5500,  weight: 50 },
+  { name: "快速刷新", spawnInterval: 3000,  weight: 20 },
+  { name: "极速刷新", spawnInterval: 1500,  weight: 15 },
+];
+
+function sanitizePlantSpawn(p) {
+  p.name          = String(p.name || "植物刷新").trim() || "植物刷新";
+  p.spawnInterval = Math.max(500, Math.floor(toNum(p.spawnInterval, 5500)));
+  p.weight        = Math.max(0,   Math.floor(toNum(p.weight,   50)));
+}
+plantSpawnConfigs.forEach(sanitizePlantSpawn);
+
 function sanitizeMonster(m) {
   m.name           = String(m.name  || "怪物").trim() || "怪物";
   m.emoji          = String(m.emoji || "🧟").trim()  || "🧟";
@@ -170,6 +201,8 @@ const gs = {
   waves: [], // active waves in collection zone
   waveSpawnTimer: 0,
   waveHitCooldown: 0, // timestamp until which player is immune to wave damage (0 = no immunity)
+  
+  currentPlantSpawnConfig: null, // Currently active plant spawn configuration
 };
 
 // ─────────────────── Keyboard Controls ───────────────
@@ -423,6 +456,32 @@ function movePlayer() {
   checkWaveCollisions();
 }
 
+// Helper: Pick a wave type by weight
+function getRandomWaveType() {
+  const totalWeight = waveTypes.reduce((sum, w) => sum + w.weight, 0);
+  if (totalWeight <= 0) return waveTypes[0] || { speed: 0.4, spawnInterval: 5000 };
+  
+  let random = Math.random() * totalWeight;
+  for (let i = 0; i < waveTypes.length; i++) {
+    random -= waveTypes[i].weight;
+    if (random <= 0) return waveTypes[i];
+  }
+  return waveTypes[waveTypes.length - 1];
+}
+
+// Helper: Pick a plant spawn config by weight
+function getRandomPlantSpawnConfig() {
+  const totalWeight = plantSpawnConfigs.reduce((sum, p) => sum + p.weight, 0);
+  if (totalWeight <= 0) return plantSpawnConfigs[0] || { spawnInterval: 5500 };
+  
+  let random = Math.random() * totalWeight;
+  for (let i = 0; i < plantSpawnConfigs.length; i++) {
+    random -= plantSpawnConfigs[i].weight;
+    if (random <= 0) return plantSpawnConfigs[i];
+  }
+  return plantSpawnConfigs[plantSpawnConfigs.length - 1];
+}
+
 // Wave system
 function spawnWave() {
   if (gs.phase !== "day") {
@@ -430,10 +489,11 @@ function spawnWave() {
     return;
   }
 
+  const waveType = getRandomWaveType();
   const wave = {
     id: uid(),
     y: 0,
-    speed: 0.3 + Math.random() * 0.5, // varying speeds
+    speed: waveType.speed,
     el: null,
   };
 
@@ -446,8 +506,12 @@ function spawnWave() {
   wave.el = el;
 
   gs.waves.push(wave);
-  addLog("[WAVE] 生成新海浪 ID:" + wave.id + " 速度:" + wave.speed.toFixed(2) + " 当前海浪数:" + gs.waves.length, "dodge");
-  console.log("Wave spawned:", wave, "Container:", elCollect, "Wave element:", el);
+  addLog("[WAVE] 生成新海浪 ID:" + wave.id + " 速度:" + wave.speed.toFixed(2) + " 类型:" + waveType.name + " 当前海浪数:" + gs.waves.length, "dodge");
+  console.log("Wave spawned:", wave, "Type:", waveType, "Container:", elCollect, "Wave element:", el);
+  
+  // Schedule next wave spawning based on selected wave type's interval
+  if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+  waveSpawnInterval = setInterval(spawnWave, waveType.spawnInterval);
 }
 
 function updateWaves() {
@@ -611,8 +675,12 @@ function startDay() {
 
   if (waveSpawnInterval) clearInterval(waveSpawnInterval);
   addLog("[WAVE] 立即生成第一波海浪", "dodge");
-  spawnWave(); // Immediately spawn first wave
-  waveSpawnInterval = setInterval(spawnWave, 5000); // Then spawn every 5 seconds
+  spawnWave(); // Immediately spawn first wave - spawnWave will handle scheduling next waves
+
+  // Select plant spawn config for this day and start spawning
+  gs.currentPlantSpawnConfig = getRandomPlantSpawnConfig();
+  console.log("[PLANT] 选定的植物刷新配置:", gs.currentPlantSpawnConfig);
+  addLog("[PLANT] 植物刷新配置: " + gs.currentPlantSpawnConfig.name + " (" + gs.currentPlantSpawnConfig.spawnInterval + "ms)", "plant");
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
@@ -628,7 +696,7 @@ function startDay() {
   }, 1000);
 
   spawnCollectionPlant();
-  gs.spawnHandle = setInterval(spawnCollectionPlant, SPAWN_INTERVAL);
+  gs.spawnHandle = setInterval(spawnCollectionPlant, gs.currentPlantSpawnConfig.spawnInterval);
 }
 
 function endDay() {
@@ -1099,8 +1167,13 @@ document.getElementById("btnClearLog").addEventListener("click", function() {
 // ─────────────────── Save / Load ─────────────────────
 document.getElementById("btnSaveConfig").addEventListener("click", function() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary, monsterTypes: monsterTypes }));
-    addLog("植物库 & 怪物库配置已保存到本地浏览器。", "end");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
+      plantLibrary:      plantLibrary, 
+      monsterTypes:      monsterTypes, 
+      waveTypes:         waveTypes,
+      plantSpawnConfigs: plantSpawnConfigs
+    }));
+    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置已保存到本地浏览器。", "end");
   } catch(e) {
     addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
@@ -1124,6 +1197,18 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       data.monsterTypes.forEach(function(m) { monsterTypes.push(m); });
       monsterTypes.forEach(sanitizeMonster);
       renderMonsterLibrary();
+    }
+    if (Array.isArray(data.waveTypes) && data.waveTypes.length >= 1) {
+      waveTypes.splice(0, waveTypes.length);
+      data.waveTypes.forEach(function(w) { waveTypes.push(w); });
+      waveTypes.forEach(sanitizeWave);
+      renderWaveLibrary();
+    }
+    if (Array.isArray(data.plantSpawnConfigs) && data.plantSpawnConfigs.length >= 1) {
+      plantSpawnConfigs.splice(0, plantSpawnConfigs.length);
+      data.plantSpawnConfigs.forEach(function(p) { plantSpawnConfigs.push(p); });
+      plantSpawnConfigs.forEach(sanitizePlantSpawn);
+      renderPlantSpawnLibrary();
     }
     addLog("配置加载成功！", "end");
   } catch(e) { 
@@ -1388,6 +1473,18 @@ document.getElementById("btnAddMonster").addEventListener("click", function() {
 });
 
 // ─────────────────── Boot ────────────────────────────
+
+// Placeholder functions for wave and plant spawn library rendering
+function renderWaveLibrary() {
+  // TODO: Implement wave library UI editor
+  console.log("[WAVE] renderWaveLibrary - placeholder");
+}
+
+function renderPlantSpawnLibrary() {
+  // TODO: Implement plant spawn library UI editor
+  console.log("[PLANT] renderPlantSpawnLibrary - placeholder");
+}
+
 function initializeGame() {
   // 检查关键 DOM 元素是否已加载
   if (!elCollect || !elPlantingGrid || !elLog) {
@@ -1403,6 +1500,8 @@ function initializeGame() {
   console.log("[INIT] 开始初始化游戏");
   renderLibrary();
   renderMonsterLibrary();
+  renderWaveLibrary();
+  renderPlantSpawnLibrary();
   initGrid();
   renderBackpack();
   updateHUD();
