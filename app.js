@@ -37,8 +37,14 @@ const POISON_TICK    = 1200;
 const MONSTER_ZONE_H = 130;
 const PLANTING_ROW_H = 130;
 const BATTLE_H       = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
-const Y_ROW          = [1.0, 2.0];
-const Y_BASE         = 3.0;
+const Y_ROW                  = [1.0, 2.0];
+const Y_BASE                 = 3.0;
+const ROUND_SCALE_FACTOR     = 0.15;  // HP/ATK difficulty increase per round
+const DEFENSE_REDUCTION      = 0.45;  // fraction of plant DEF applied to monster ATK
+const POISON_DMG_MULTIPLIER  = 0.25;  // poison DoT = attacker.atk × this
+const POISON_DURATION_BONUS  = 2;     // extra ticks added on top of plant's skillCd
+const SLOW_DURATION_MS       = 2000;  // ms per (skillCd + 1) unit for slow duration
+const SHIELD_GAIN_MULTIPLIER = 0.85;  // shield gained = atk × skillCoef × this
 
 // ─────────────────── Utility ─────────────────────────
 let _id = 0;
@@ -370,7 +376,7 @@ function buildQueue() {
     const maxType = Math.min(monsterTypes.length - 1, Math.floor(gs.round / 2));
     const ti      = Math.floor(Math.random() * (maxType + 1));
     const t       = monsterTypes[ti];
-    const scale   = 1 + (gs.round - 1) * 0.15;
+    const scale   = 1 + (gs.round - 1) * ROUND_SCALE_FACTOR;
     arr.push({
       id:             uid(),
       typeIdx:        ti,
@@ -544,7 +550,7 @@ function monsterAttack(m, plant, ts, slotIdx) {
   if (ts - m.lastAttack < m.attackInterval) return;
   m.lastAttack = ts;
 
-  let dmg = Math.max(1, m.atk - Math.floor(plant.df * 0.45));
+  let dmg = Math.max(1, m.atk - Math.floor(plant.df * DEFENSE_REDUCTION));
 
   if (plant.shield > 0) {
     const absorbed = Math.min(plant.shield, dmg);
@@ -636,17 +642,17 @@ function plantAttack(plant, target, ts, fireFx) {
 function applyPlantSkill(plant, monster) {
   const type = plant.skillType;
   if (type === "poison") {
-    const turns = plant.skillCd + 2;
-    const dpt   = Math.floor(plant.atk * 0.25);
+    const turns = plant.skillCd + POISON_DURATION_BONUS;
+    const dpt   = Math.floor(plant.atk * POISON_DMG_MULTIPLIER);
     monster.poisonTurns = Math.max(monster.poisonTurns, turns);
     monster.poisonDmg   = Math.max(monster.poisonDmg,   dpt);
     addLog(monster.name + " 进入中毒状态（" + turns + " 次，每次 -" + dpt + "）", "crit");
   } else if (type === "slow") {
-    const dur = (plant.skillCd + 1) * 2000;
+    const dur = (plant.skillCd + 1) * SLOW_DURATION_MS;
     monster.slowUntil = Math.max(monster.slowUntil, performance.now() + dur);
     addLog(monster.name + " 被减速 " + (dur / 1000) + "s！", "dodge");
   } else if (type === "shield") {
-    const gain = Math.floor(plant.atk * plant.skillCoef * 0.85);
+    const gain = Math.floor(plant.atk * plant.skillCoef * SHIELD_GAIN_MULTIPLIER);
     plant.shield += gain;
     addLog(plant.name + " 获得护盾 +" + gain + "（总计 " + plant.shield + "）", "end");
   }
