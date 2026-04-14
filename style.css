@@ -244,6 +244,11 @@ label {
   color: rgba(255, 60, 60, 0.85);
   text-shadow: 0 0 4px rgba(255,0,0,0.3);
 }
+.stripe-spawn {
+  color: rgba(255, 200, 0, 0.9);
+  font-weight: 800;
+  text-shadow: 0 0 6px rgba(255,200,0,0.4);
+}
 
 /* Player character in collection zone */
 .player-character {
@@ -255,6 +260,39 @@ label {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,.3));
   transition: none;
   user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.player-emoji {
+  line-height: 1;
+}
+.carried-plants {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.carried-plant-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+  background: #fff;
+  object-fit: cover;
+  animation: carriedBounce 0.6s ease-in-out infinite alternate;
+}
+@keyframes carriedBounce {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-3px); }
 }
 
 /* Wave animation in collection zone */

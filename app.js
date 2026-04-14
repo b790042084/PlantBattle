@@ -217,9 +217,11 @@ const gs = {
   waves: [], // active waves in collection zone
   waveSpawnTimer: 0,
   waveHitCooldown: 0, // timestamp until which player is immune to wave damage (0 = no immunity)
-  
+  carried: [], // plants carried above player head, not yet in backpack
   currentPlantSpawnConfig: null, // Currently active plant spawn configuration
 };
+
+const SPAWN_ROW = 14; // Bottom row is the spawn/birth zone
 
 // ─────────────────── Keyboard Controls ───────────────
 document.addEventListener("keydown", function(e) {
@@ -422,9 +424,38 @@ function createPlayer() {
   if (elPlayer) elPlayer.remove();
   elPlayer = document.createElement("div");
   elPlayer.className = "player-character";
-  elPlayer.textContent = "🧑";
+  elPlayer.innerHTML = '<span class="player-emoji">🧑</span><div class="carried-plants"></div>';
   elCollect.appendChild(elPlayer);
   updatePlayerPosition();
+}
+
+function renderCarriedPlants() {
+  if (!elPlayer) return;
+  const container = elPlayer.querySelector(".carried-plants");
+  if (!container) return;
+  container.innerHTML = "";
+  gs.carried.forEach(function(c) {
+    const pDef = plantLibrary[c.plantIdx];
+    const img = document.createElement("img");
+    img.src = getImg(pDef);
+    img.alt = pDef.name;
+    img.className = "carried-plant-icon";
+    img.title = pDef.name;
+    img.onerror = function() { img.src = buildSvgFallback(pDef.name, pDef.role); };
+    container.appendChild(img);
+  });
+}
+
+function depositCarriedPlants() {
+  if (gs.carried.length === 0) return;
+  const names = gs.carried.map(function(c) { return plantLibrary[c.plantIdx].name; });
+  gs.carried.forEach(function(c) {
+    gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
+  });
+  gs.carried = [];
+  renderCarriedPlants();
+  renderBackpack();
+  addLog("回到出生区！存入背包：" + names.join("、"), "end");
 }
 
 function updatePlayerPosition() {
@@ -470,6 +501,11 @@ function movePlayer() {
   updatePlayerPosition();
   checkPlantCollisions();
   checkWaveCollisions();
+
+  // Check if player returned to spawn zone with carried plants
+  if (gs.player.row === SPAWN_ROW && gs.carried.length > 0) {
+    depositCarriedPlants();
+  }
 }
 
 // Helper: Pick a wave type by weight
@@ -574,12 +610,18 @@ function checkWaveCollisions() {
     const COLLISION_TOLERANCE = STRIPE_HEIGHT * 1.2;  // Adaptive collision tolerance
     if (distance < COLLISION_TOLERANCE) {
       // Hit by wave - reset to bottom and grant 1.5s of immunity
+      // Drop all carried plants when hit by wave
+      if (gs.carried.length > 0) {
+        addLog("被海浪击中！携带的植物掉落了！", "crit");
+        gs.carried = [];
+        renderCarriedPlants();
+      }
       gs.player.x = 50;
-      gs.player.row = 14;  // Reset to bottom
+      gs.player.row = SPAWN_ROW;  // Reset to spawn zone
       gs.player.y = 95;    // Bottom position
       gs.waveHitCooldown = performance.now() + 1500;
       updatePlayerPosition();
-      addLog("被海浪击中！回到起点 (海浪Y:" + wave.y.toFixed(1) + "% 玩家Y:" + playerY.toFixed(1) + "%)", "dodge");
+      addLog("被海浪击中！回到出生区 (海浪Y:" + wave.y.toFixed(1) + "% 玩家Y:" + playerY.toFixed(1) + "%)", "dodge");
       break;
     }
   }
@@ -656,9 +698,10 @@ function collectPlant(id) {
   sp.el.classList.add("collected");
   setTimeout(function() { sp.el.remove(); }, 350);
   gs.spawned.splice(idx, 1);
-  gs.backpack.push({ id: uid(), plantIdx: sp.plantIdx });
-  renderBackpack();
-  addLog("收集了 " + pDef.name + "！", "end");
+  // Add to carried (above head), not directly to backpack
+  gs.carried.push({ id: uid(), plantIdx: sp.plantIdx });
+  renderCarriedPlants();
+  addLog("拾取了 " + pDef.name + "！回到出生区存入背包", "end");
 }
 
 // ─────────────────── Day Phase ───────────────────────
@@ -671,9 +714,10 @@ function startDay() {
   gs.phaseLeft = DAY_DURATION;
   gs.spawned = [];
   gs.waves = [];
+  gs.carried = [];
   gs.player.x = 50;
   gs.player.y = 95;    // Start at bottom
-  gs.player.row = 14;  // Bottom row
+  gs.player.row = SPAWN_ROW;  // Spawn zone row
   gs.player.isJumping = false;
   gs.waveHitCooldown = 0;
   addLog("[DEBUG] startDay 开始初始化", "round");
@@ -687,15 +731,20 @@ function startDay() {
   for (let r = 0; r < COLLECTION_ROWS; r++) {
     const lbl = document.createElement("div");
     lbl.className = "stripe-label";
-    const isDanger = r % 2 === 1; // odd = black = danger
-    lbl.textContent = isDanger ? "⚠ 危险" : "✓ 安全";
+    if (r === SPAWN_ROW) {
+      lbl.textContent = "🏠 出生区";
+      lbl.classList.add("stripe-spawn");
+    } else {
+      const isDanger = r % 2 === 1; // odd = black = danger
+      lbl.textContent = isDanger ? "⚠ 危险" : "✓ 安全";
+      if (isDanger) {
+        lbl.classList.add("stripe-danger");
+      } else {
+        lbl.classList.add("stripe-safe");
+      }
+    }
     lbl.style.top = (r * STRIPE_HEIGHT) + "%";
     lbl.style.height = STRIPE_HEIGHT + "%";
-    if (isDanger) {
-      lbl.classList.add("stripe-danger");
-    } else {
-      lbl.classList.add("stripe-safe");
-    }
     elCollect.appendChild(lbl);
   }
 
@@ -759,6 +808,14 @@ function endDay() {
   gs.spawned     = [];
   gs.waves.forEach(function(w) { if (w.el) w.el.remove(); });
   gs.waves = [];
+  // Deposit any remaining carried plants to backpack at end of day
+  if (gs.carried.length > 0) {
+    gs.carried.forEach(function(c) {
+      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
+    });
+    addLog("白天结束，携带的植物自动存入背包。", "end");
+    gs.carried = [];
+  }
   gs.selectedId  = null;
   if (elCollectHint) elCollectHint.style.display = "none";
   addLog("白天结束！进入黄昏…", "round");
