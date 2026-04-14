@@ -171,7 +171,7 @@ document.addEventListener("keydown", function(e) {
     gs.keys[key] = true;
   }
   // Jump with spacebar - always prevent default to avoid page scroll
-  if (key === " ") {
+  if (e.code === "Space" || e.key === " ") {
     e.preventDefault();
     if (gs.phase === "day" && !gs.player.isJumping) {
       gs.player.isJumping = true;
@@ -416,7 +416,10 @@ function movePlayer() {
 
 // Wave system
 function spawnWave() {
-  if (gs.phase !== "day") return;
+  if (gs.phase !== "day") {
+    addLog("[WAVE] spawnWave 被调用，但阶段不是 day，阶段: " + gs.phase, "dodge");
+    return;
+  }
 
   const wave = {
     id: uid(),
@@ -428,10 +431,14 @@ function spawnWave() {
   const el = document.createElement("div");
   el.className = "wave";
   el.dataset.id = wave.id;
+  el.style.top = "0%";
+  el.style.display = "block";
   elCollect.appendChild(el);
   wave.el = el;
 
   gs.waves.push(wave);
+  addLog("[WAVE] 生成新海浪 ID:" + wave.id + " 速度:" + wave.speed.toFixed(2) + " 当前海浪数:" + gs.waves.length, "dodge");
+  console.log("Wave spawned:", wave, "Container:", elCollect, "Wave element:", el);
 }
 
 function updateWaves() {
@@ -444,11 +451,14 @@ function updateWaves() {
 
     if (wave.el) {
       wave.el.style.top = wave.y + "%";
+    } else {
+      addLog("[WAVE] 警告：海浪 ID:" + wave.id + " 没有 el 元素", "crit");
     }
 
     // Remove waves that have gone off screen
     if (wave.y > 100) {
       if (wave.el) wave.el.remove();
+      addLog("[WAVE] 海浪 ID:" + wave.id + " 已离屏移除", "dodge");
       gs.waves.splice(i, 1);
     }
   }
@@ -463,15 +473,16 @@ function checkWaveCollisions() {
   const playerY = gs.player.y;
 
   for (const wave of gs.waves) {
+    const distance = Math.abs(wave.y - playerY);
     // Check if wave is at player's position (±8% tolerance)
-    if (Math.abs(wave.y - playerY) < 8) {
+    if (distance < 8) {
       // Hit by wave - reset to start and grant 1.5s of immunity
       gs.player.x = 50;
       gs.player.row = 2;
       gs.player.y = 50;
       gs.waveHitCooldown = performance.now() + 1500;
       updatePlayerPosition();
-      addLog("被海浪击中！回到起点", "dodge");
+      addLog("被海浪击中！回到起点 (海浪Y:" + wave.y.toFixed(1) + "% 玩家Y:" + playerY.toFixed(1) + "%)", "dodge");
       break;
     }
   }
@@ -563,6 +574,8 @@ function startDay() {
   gs.player.row = 2;
   gs.player.isJumping = false;
   gs.waveHitCooldown = 0;
+  addLog("[DEBUG] startDay 开始初始化", "round");
+  console.log("[DEBUG] elCollect:", elCollect);
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   elCollect.querySelectorAll(".wave").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
@@ -579,7 +592,9 @@ function startDay() {
   waveUpdateInterval = setInterval(updateWaves, 16); // ~60fps
 
   if (waveSpawnInterval) clearInterval(waveSpawnInterval);
-  waveSpawnInterval = setInterval(spawnWave, 5000); // Every 5 seconds
+  addLog("[WAVE] 立即生成第一波海浪", "dodge");
+  spawnWave(); // Immediately spawn first wave
+  waveSpawnInterval = setInterval(spawnWave, 5000); // Then spawn every 5 seconds
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
@@ -1065,14 +1080,19 @@ document.getElementById("btnClearLog").addEventListener("click", function() {
 
 // ─────────────────── Save / Load ─────────────────────
 document.getElementById("btnSaveConfig").addEventListener("click", function() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary, monsterTypes: monsterTypes }));
-  addLog("植物库 & 怪物库配置已保存到本地浏览器。", "end");
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary, monsterTypes: monsterTypes }));
+    addLog("植物库 & 怪物库配置已保存到本地浏览器。", "end");
+  } catch(e) {
+    addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
+    console.warn("localStorage error:", e);
+  }
 });
 
 document.getElementById("btnLoadConfig").addEventListener("click", function() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) { addLog("未找到已保存配置。", "dodge"); return; }
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) { addLog("未找到已保存配置。", "dodge"); return; }
     const data = JSON.parse(raw);
     if (Array.isArray(data.plantLibrary) && data.plantLibrary.length >= 1) {
       plantLibrary.splice(0, plantLibrary.length);
@@ -1088,7 +1108,10 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       renderMonsterLibrary();
     }
     addLog("配置加载成功！", "end");
-  } catch(e) { addLog("配置解析失败。", "dodge"); }
+  } catch(e) { 
+    addLog("配置加载失败（file:// 协议不支持 localStorage）", "dodge");
+    console.warn("localStorage error:", e); 
+  }
 });
 
 // ─────────────────── Plant Library Editor ────────────
@@ -1347,9 +1370,32 @@ document.getElementById("btnAddMonster").addEventListener("click", function() {
 });
 
 // ─────────────────── Boot ────────────────────────────
-renderLibrary();
-renderMonsterLibrary();
-initGrid();
-renderBackpack();
-updateHUD();
-addLog("欢迎来到植物战队！点击「开始游戏」进入第一回合。", "round");
+function initializeGame() {
+  // 检查关键 DOM 元素是否已加载
+  if (!elCollect || !elPlantingGrid || !elLog) {
+    console.error("[INIT] 关键 DOM 元素未加载！", {
+      elCollect: elCollect,
+      elPlantingGrid: elPlantingGrid,
+      elLog: elLog
+    });
+    setTimeout(initializeGame, 100); // 重试
+    return;
+  }
+  
+  console.log("[INIT] 开始初始化游戏");
+  renderLibrary();
+  renderMonsterLibrary();
+  initGrid();
+  renderBackpack();
+  updateHUD();
+  addLog("欢迎来到植物战队！点击「开始游戏」进入第一回合。", "round");
+  console.log("[INIT] 游戏初始化完成");
+}
+
+// 确保在 DOM 完全加载后初始化
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeGame);
+} else {
+  // DOM 已经加载（通常在 HTTP 服务器下）
+  initializeGame();
+}

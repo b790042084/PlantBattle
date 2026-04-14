@@ -102,5 +102,15 @@
 
     </main>
     <script src="app.js"></script>
+    <script>
+      // 确保在 DOM 完全加载后初始化
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('[INIT] DOM 已加载');
+        });
+      } else {
+        console.log('[INIT] DOM 已就绪');
+      }
+    </script>
   </body>
 </html>
