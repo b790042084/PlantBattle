@@ -1,1102 +1,948 @@
-const STORAGE_KEY = "plant-battle-config-v3";
+// =============================================================
+//  植物战队 — 日夜循环防守模式
+//  Day phase : collect plants in 收集区 (30 s)
+//  Night phase: monsters advance from 刷怪区 into 种植区
+//               planted plants auto-attack using full stats
+// =============================================================
 
-// 植物库 —— 所有可供选择的植物
+const STORAGE_KEY = "plant-battle-td-v1";
+
+// ─────────────────── Plant Library ───────────────────
 const plantLibrary = [
-  { name: "坚果墙", image: "", role: "defender", attackMode: "melee", hp: 1800, atk: 60, df: 80, crit: 0.1, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
-  { name: "豌豆射手", image: "", role: "attacker", attackMode: "ranged", hp: 900, atk: 180, df: 30, crit: 0.2, critDmg: 1.5, dodge: 0.0, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal" },
-  { name: "寒冰射手", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.0, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow" },
-  { name: "铁桶坚果", image: "", role: "defender", attackMode: "melee", hp: 2000, atk: 70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield" },
-  { name: "毒液花", image: "", role: "attacker", attackMode: "area", hp: 850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.0, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison" },
-  { name: "机枪豌豆", image: "", role: "attacker", attackMode: "ranged", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.0, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal" }
+  { name: "坚果墙",   image: "", role: "defender", attackMode: "melee",  hp: 1800, atk:  60, df: 80, crit: 0.08, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield"  },
+  { name: "豌豆射手", image: "", role: "attacker", attackMode: "ranged", hp:  900, atk: 180, df: 30, crit: 0.20, critDmg: 1.5, dodge: 0.00, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal"  },
+  { name: "寒冰射手", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.00, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow"    },
+  { name: "铁桶坚果", image: "", role: "defender", attackMode: "melee",  hp: 2000, atk:  70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield"  },
+  { name: "毒液花",   image: "", role: "attacker", attackMode: "area",   hp:  850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.00, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison"  },
+  { name: "机枪豌豆", image: "", role: "attacker", attackMode: "ranged", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.00, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal"  },
 ];
 
-// 阵容索引：每队3个位置，值为 plantLibrary 下标
-const teamCompositionA = [0, 1, 2];
-const teamCompositionB = [3, 4, 5];
-
-// 工作模板（由库+阵容推导，let 可重赋值）
-let templateA = teamCompositionA.map(i => ({ ...plantLibrary[i] }));
-let templateB = teamCompositionB.map(i => ({ ...plantLibrary[i] }));
-
-const effectSettings = {
-  poisonTurns: 2,
-  poisonScale: 0.25,
-  shieldScale: 1.2,
-  slowTurns: 1
-};
-
-const state = {
-  teamA: [],
-  teamB: [],
-  running: false,
-  timer: null,
-  round: 0,
-  hpA: [],
-  hpB: [],
-  dmgA: [],
-  dmgB: [],
-  battleState: "待命"
-};
-
-const fields = [
-  { key: "name", label: "名字", type: "text" },
-  { key: "image", label: "图片URL", type: "text" },
-  { key: "role", label: "定位", type: "select" },
-  { key: "attackMode", label: "攻击方式", type: "select" },
-  { key: "hp", label: "HP", type: "number", step: "1" },
-  { key: "atk", label: "ATK", type: "number", step: "1" },
-  { key: "df", label: "DEF", type: "number", step: "1" },
-  { key: "crit", label: "暴击率", type: "number", step: "0.01" },
-  { key: "critDmg", label: "暴伤", type: "number", step: "0.1" },
-  { key: "dodge", label: "闪避", type: "number", step: "0.01" },
-  { key: "skillName", label: "技能名", type: "text" },
-  { key: "skillType", label: "技能特效", type: "select" },
-  { key: "skillCoef", label: "技能系数", type: "number", step: "0.1" },
-  { key: "skillCd", label: "冷却", type: "number", step: "1" }
+// ─────────────────── Monster Types ───────────────────
+const monsterTypes = [
+  { name: "普通僵尸", emoji: "🧟", hp: 300,  atk:  35, speed: 0.27, attackInterval: 1600, reward: 10 },
+  { name: "快速僵尸", emoji: "🏃", hp: 200,  atk:  25, speed: 0.55, attackInterval: 1200, reward: 15 },
+  { name: "铁桶僵尸", emoji: "🪣", hp: 650,  atk:  55, speed: 0.17, attackInterval: 2000, reward: 25 },
+  { name: "巨型僵尸", emoji: "👾", hp: 1100, atk:  80, speed: 0.13, attackInterval: 2500, reward: 40 },
 ];
 
-const dragState = {
-  team: null,
-  slot: null
-};
+// ─────────────────── Constants ───────────────────────
+const LANES          = 5;
+const ROWS           = 2;
+const SLOTS          = LANES * ROWS;
+const DAY_DURATION   = 30;
+const SPAWN_INTERVAL = 5500;
+const MAX_SPAWNED    = 5;
+const COMBAT_TICK    = 900;
+const POISON_TICK    = 1200;
+const MONSTER_ZONE_H = 130;
+const PLANTING_ROW_H = 130;
+const BATTLE_H       = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
+const Y_ROW          = [1.0, 2.0];
+const Y_BASE         = 3.0;
 
-const el = {
-  arena: document.getElementById("arena"),
-  fxLayer: document.getElementById("fxLayer"),
-  teamA: document.getElementById("teamA"),
-  teamB: document.getElementById("teamB"),
-  slotPickerA: document.getElementById("slotPickerA"),
-  slotPickerB: document.getElementById("slotPickerB"),
-  plantLibraryList: document.getElementById("plantLibraryList"),
-  btnAddPlant: document.getElementById("btnAddPlant"),
-  applyConfig: document.getElementById("btnApplyConfig"),
-  saveConfig: document.getElementById("btnSaveConfig"),
-  loadConfig: document.getElementById("btnLoadConfig"),
-  setPoisonTurns: document.getElementById("setPoisonTurns"),
-  setPoisonScale: document.getElementById("setPoisonScale"),
-  setShieldScale: document.getElementById("setShieldScale"),
-  setSlowTurns: document.getElementById("setSlowTurns"),
-  simTimes: document.getElementById("simTimes"),
-  simulateBatch: document.getElementById("btnSimulateBatch"),
-  simResult: document.getElementById("simResult"),
-  log: document.getElementById("log"),
-  hpChart: document.getElementById("hpChart"),
-  dmgChart: document.getElementById("dmgChart"),
-  start: document.getElementById("btnStart"),
-  step: document.getElementById("btnStep"),
-  reset: document.getElementById("btnReset"),
-  speed: document.getElementById("speed"),
-  clearLog: document.getElementById("btnClearLog"),
-  roundNum: document.getElementById("roundNum"),
-  battleState: document.getElementById("battleState"),
-  aliveInfo: document.getElementById("aliveInfo")
-};
+// ─────────────────── Utility ─────────────────────────
+let _id = 0;
+const uid = () => ++_id;
 
-function toNumber(value, fallback) {
-  const v = Number(value);
-  return Number.isFinite(v) ? v : fallback;
+function escHtml(t) {
+  return String(t ?? "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;")
+    .replaceAll(">","&gt;").replaceAll('"',"&quot;");
 }
+function toNum(v, fb) { const n = Number(v); return Number.isFinite(n) ? n : fb; }
 
-function roleLabel(role) {
-  if (role === "defender") return "防御";
-  if (role === "support") return "辅助";
-  return "输出";
-}
-
-function attackModeLabel(mode) {
-  if (mode === "melee") return "近战突进";
-  if (mode === "area") return "范围爆发";
-  return "远程弹道";
-}
-
-function escapeHtml(text) {
-  return String(text ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function buildFallbackImage(name, role) {
-  const bg = role === "defender" ? "#8d6e63" : role === "support" ? "#6c5ce7" : "#2b8a3e";
-  const glow = role === "defender" ? "#d7b899" : role === "support" ? "#c0b7ff" : "#b7f0c1";
-  const text = escapeHtml((name || "植物").slice(0, 2));
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${bg}"/><stop offset="100%" stop-color="${glow}"/></linearGradient></defs><rect width="180" height="180" rx="28" fill="url(#g)"/><circle cx="90" cy="74" r="34" fill="rgba(255,255,255,0.35)"/><rect x="38" y="112" width="104" height="28" rx="14" fill="rgba(16,24,32,0.18)"/><text x="90" y="129" font-size="22" text-anchor="middle" fill="#fff" font-family="Arial, sans-serif">${text}</text></svg>`;
+function buildSvgFallback(name, role) {
+  const bg  = role === "defender" ? "#8d6e63" : role === "support" ? "#6c5ce7" : "#2b8a3e";
+  const txt = escHtml((name || "植").slice(0, 2));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="16" fill="${bg}"/><text x="40" y="52" font-size="26" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif">${txt}</text></svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
-
-function getPlantImage(p) {
-  return p.image && String(p.image).trim() ? String(p.image).trim() : buildFallbackImage(p.name, p.role);
-}
-
-function getAttackMode(p) {
-  return p.attackMode || (p.role === "defender" ? "melee" : "ranged");
-}
-
-function clonePlant(p) {
-  return {
-    ...p,
-    maxHp: p.hp,
-    currentCd: 0,
-    justHit: false,
-    shield: 0,
-    poisonTurns: 0,
-    poisonDmg: 0,
-    slowTurns: 0
-  };
-}
-
-function aliveCount(team) {
-  return team.filter((p) => p.hp > 0).length;
-}
-
-function appendLog(text, type = "hit") {
-  const line = document.createElement("div");
-  line.className = `log-line log-${type}`;
-  line.textContent = text;
-  el.log.appendChild(line);
-  el.log.scrollTop = el.log.scrollHeight;
-}
-
-function iconSvg(type) {
-  if (type === "shield") {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 3v6c0 5-3.4 9.6-7 11-3.6-1.4-7-6-7-11V5l7-3z"></path></svg>';
-  }
-  if (type === "poison") {
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8 7 6 10.2 6 13.5A6 6 0 0018 13.5C18 10.2 16 7 12 2zm-1.2 13.6a1.2 1.2 0 110-2.4 1.2 1.2 0 010 2.4zm3.1-1a1 1 0 110-2 1 1 0 010 2z"></path></svg>';
-  }
-  return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.6 4.3L19 7l-3 3.1.8 4.4L12 12.7 7.2 14.5 8 10.1 5 7l4.4-.7L12 2z"></path></svg>';
-}
-
-function teamAlive(team) {
-  return team.some((p) => p.hp > 0);
-}
-
-function frontTarget(team) {
-  return team.find((p) => p.hp > 0) || null;
-}
-
-function guardSlot1(team) {
-  const p = team[0];
-  if (p && p.hp > 0 && p.role === "defender") return p;
-  return null;
-}
-
-function teamTotalHp(team) {
-  return team.reduce((s, p) => s + Math.max(0, p.hp), 0);
-}
-
-function syncSettingInputs() {
-  el.setPoisonTurns.value = String(effectSettings.poisonTurns);
-  el.setPoisonScale.value = String(effectSettings.poisonScale);
-  el.setShieldScale.value = String(effectSettings.shieldScale);
-  el.setSlowTurns.value = String(effectSettings.slowTurns);
-}
-
-function readSettingInputs() {
-  effectSettings.poisonTurns = Math.max(1, Math.floor(toNumber(el.setPoisonTurns.value, effectSettings.poisonTurns)));
-  effectSettings.poisonScale = Math.max(0.05, toNumber(el.setPoisonScale.value, effectSettings.poisonScale));
-  effectSettings.shieldScale = Math.max(0.2, toNumber(el.setShieldScale.value, effectSettings.shieldScale));
-  effectSettings.slowTurns = Math.max(1, Math.floor(toNumber(el.setSlowTurns.value, effectSettings.slowTurns)));
-  syncSettingInputs();
-}
-
-function getFighterNode(teamKey, slot) {
-  return document.querySelector(`.fighter[data-team="${teamKey}"][data-slot="${slot}"]`);
-}
-
-function getNodeCenter(node) {
-  const arenaRect = el.arena.getBoundingClientRect();
-  const rect = node.getBoundingClientRect();
-  return {
-    x: rect.left + rect.width / 2 - arenaRect.left,
-    y: rect.top + rect.height / 2 - arenaRect.top
-  };
-}
-
-function fireProjectile(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
-  const source = getFighterNode(teamKeyFrom, slotFrom);
-  const target = getFighterNode(teamKeyTo, slotTo);
-  if (!source || !target) return;
-
-  const a = getNodeCenter(source);
-  const b = getNodeCenter(target);
-
-  const dot = document.createElement("div");
-  dot.className = `projectile ${isSkill ? "skill" : "normal"}`;
-  dot.style.setProperty("--x1", `${a.x}px`);
-  dot.style.setProperty("--y1", `${a.y}px`);
-  dot.style.setProperty("--x2", `${b.x}px`);
-  dot.style.setProperty("--y2", `${b.y}px`);
-  dot.style.setProperty("--dur", `${Math.max(180, Number(el.speed.value) * 0.45)}ms`);
-
-  el.fxLayer.appendChild(dot);
-  dot.addEventListener("animationend", () => dot.remove(), { once: true });
-}
-
-function fireMeleeFx(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
-  const source = getFighterNode(teamKeyFrom, slotFrom);
-  const target = getFighterNode(teamKeyTo, slotTo);
-  if (!source || !target) return;
-
-  const a = getNodeCenter(source);
-  const b = getNodeCenter(target);
-
-  const slash = document.createElement("div");
-  slash.className = `melee-fx ${isSkill ? "skill" : "normal"}`;
-  slash.style.setProperty("--x1", `${a.x}px`);
-  slash.style.setProperty("--y1", `${a.y}px`);
-  slash.style.setProperty("--x2", `${b.x}px`);
-  slash.style.setProperty("--y2", `${b.y}px`);
-  slash.style.setProperty("--dur", `${Math.max(220, Number(el.speed.value) * 0.55)}ms`);
-  el.fxLayer.appendChild(slash);
-  slash.addEventListener("animationend", () => slash.remove(), { once: true });
-}
-
-function fireAreaFx(teamKey, slot, isSkill) {
-  const target = getFighterNode(teamKey, slot);
-  if (!target) return;
-
-  const point = getNodeCenter(target);
-  const burst = document.createElement("div");
-  burst.className = `area-fx ${isSkill ? "skill" : "normal"}`;
-  burst.style.left = `${point.x}px`;
-  burst.style.top = `${point.y}px`;
-  burst.style.setProperty("--dur", `${Math.max(240, Number(el.speed.value) * 0.55)}ms`);
-  el.fxLayer.appendChild(burst);
-  burst.addEventListener("animationend", () => burst.remove(), { once: true });
-}
-
-function playAttackFx(attacker, teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill) {
-  const mode = getAttackMode(attacker);
-  if (mode === "melee") {
-    fireMeleeFx(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill);
-    return;
-  }
-  if (mode === "area") {
-    fireAreaFx(teamKeyTo, slotTo, isSkill);
-    return;
-  }
-  fireProjectile(teamKeyFrom, slotFrom, teamKeyTo, slotTo, isSkill);
-}
-
-function fireStatusFx(teamKey, slot, type) {
-  const target = getFighterNode(teamKey, slot);
-  if (!target) return;
-
-  const point = getNodeCenter(target);
-  const pulse = document.createElement("div");
-  pulse.className = `status-fx ${type}`;
-  pulse.style.left = `${point.x}px`;
-  pulse.style.top = `${point.y}px`;
-  el.fxLayer.appendChild(pulse);
-  pulse.addEventListener("animationend", () => pulse.remove(), { once: true });
-}
-
-function absorbWithShield(target, incoming) {
-  if (incoming <= 0) return { remain: 0, absorbed: 0 };
-  if (!target.shield || target.shield <= 0) return { remain: incoming, absorbed: 0 };
-
-  const absorbed = Math.min(target.shield, incoming);
-  target.shield -= absorbed;
-  return { remain: incoming - absorbed, absorbed };
-}
-
-function applyStartOfTurnEffects(plant, teamKey, slot, withFx = true) {
-  if (plant.hp <= 0) return;
-
-  if (plant.poisonTurns > 0 && plant.poisonDmg > 0) {
-    if (withFx) fireStatusFx(teamKey, slot, "poison");
-    const raw = Math.max(1, plant.poisonDmg);
-    const blocked = absorbWithShield(plant, raw);
-    const real = Math.min(plant.hp, blocked.remain);
-    plant.hp = Math.max(0, plant.hp - real);
-    plant.poisonTurns -= 1;
-
-    if (withFx) {
-      const shieldTag = blocked.absorbed > 0 ? `（护盾吸收${blocked.absorbed}）` : "";
-      appendLog(`${plant.name} 受到中毒持续伤害 -${real}${shieldTag}`, "dodge");
-    }
-  }
-}
-
-function applySkillEffect(attacker, target, attackerTeamKey, attackerSlot, targetTeamKey, targetSlot, withFx = true) {
-  const type = attacker.skillType || "normal";
-
-  if (type === "poison") {
-    target.poisonTurns = Math.max(target.poisonTurns, effectSettings.poisonTurns);
-    target.poisonDmg = Math.max(target.poisonDmg, Math.max(1, Math.floor(attacker.atk * effectSettings.poisonScale)));
-    if (withFx) {
-      fireStatusFx(targetTeamKey, targetSlot, "poison");
-      appendLog(`${target.name} 进入中毒状态（${effectSettings.poisonTurns}回合）`, "crit");
-    }
-    return;
-  }
-
-  if (type === "shield") {
-    const addShield = Math.max(20, Math.floor(attacker.atk * effectSettings.shieldScale));
-    attacker.shield += addShield;
-    if (withFx) {
-      fireStatusFx(attackerTeamKey, attackerSlot, "shield");
-      appendLog(`${attacker.name} 获得护盾 +${addShield}`, "end");
-    }
-    return;
-  }
-
-  if (type === "slow") {
-    target.slowTurns = Math.max(target.slowTurns, effectSettings.slowTurns);
-    if (withFx) {
-      fireStatusFx(targetTeamKey, targetSlot, "slow");
-      appendLog(`${target.name} 被减速，${effectSettings.slowTurns}回合内跳过行动`, "dodge");
-    }
-  }
-}
-
-function attack(attacker, attackerTeamKey, attackerSlot, enemyTeam, enemyTeamKey, withFx = true) {
-  if (attacker.hp <= 0) return 0;
-
-  applyStartOfTurnEffects(attacker, attackerTeamKey, attackerSlot, withFx);
-  if (attacker.hp <= 0) {
-    if (withFx) appendLog(`${attacker.name} 因持续伤害倒下`, "end");
-    return 0;
-  }
-
-  if (attacker.slowTurns > 0) {
-    if (withFx) fireStatusFx(attackerTeamKey, attackerSlot, "slow");
-    attacker.slowTurns -= 1;
-    if (withFx) appendLog(`${attacker.name} 受减速影响，本回合无法行动`, "dodge");
-    return 0;
-  }
-
-  const defaultTarget = frontTarget(enemyTeam);
-  if (!defaultTarget) return 0;
-
-  const guard = guardSlot1(enemyTeam);
-  const target = guard || defaultTarget;
-  const targetSlot = enemyTeam.indexOf(target) + 1;
-
-  let usingSkill = false;
-  let coef = 1;
-
-  if (attacker.currentCd === 0 && attacker.skillCoef > 1) {
-    usingSkill = true;
-    coef = attacker.skillCoef;
-    attacker.currentCd = attacker.skillCd;
-  } else if (attacker.currentCd > 0) {
-    attacker.currentCd -= 1;
-  }
-
-  if (withFx) playAttackFx(attacker, attackerTeamKey, attackerSlot, enemyTeamKey, targetSlot, usingSkill);
-
-  const attackMode = getAttackMode(attacker);
-  const baseDamage = Math.floor(attacker.atk * coef);
-
-  if (Math.random() < target.dodge) {
-    if (withFx) appendLog(`${attacker.name}${usingSkill ? ` 使用技能【${attacker.skillName}】` : " 普攻"} -> ${target.name} 闪避`, "dodge");
-    return 0;
-  }
-
-  let damage = baseDamage;
-  let critTag = "";
-  if (Math.random() < attacker.crit) {
-    damage = Math.floor(damage * attacker.critDmg);
-    critTag = "【暴击】";
-  }
-
-  const raw = Math.max(1, damage - target.df);
-  const blocked = absorbWithShield(target, raw);
-  const real = Math.min(target.hp, blocked.remain);
-  target.hp = Math.max(0, target.hp - real);
-  target.justHit = true;
-
-  if (withFx) {
-    const blockTag = guard && guard !== defaultTarget ? `，被${guard.name}(1号位)拦截` : "";
-    const shieldTag = blocked.absorbed > 0 ? `，护盾吸收${blocked.absorbed}` : "";
-    appendLog(
-      `${attacker.name}${usingSkill ? ` 使用技能【${attacker.skillName}】` : " 普攻"} 命中 ${target.name}${blockTag}${shieldTag}，-${real} ${critTag}`,
-      critTag ? "crit" : "hit"
-    );
-  }
-
-  if (usingSkill) {
-    applySkillEffect(attacker, target, attackerTeamKey, attackerSlot, enemyTeamKey, targetSlot, withFx);
-  }
-
-  let splashTotal = 0;
-  if (attackMode === "area") {
-    enemyTeam.forEach((unit, idx) => {
-      if (unit === target || unit.hp <= 0) return;
-      const splashRaw = Math.max(1, Math.floor(baseDamage * (usingSkill ? 0.55 : 0.35)) - unit.df);
-      const splashBlocked = absorbWithShield(unit, splashRaw);
-      const splashReal = Math.min(unit.hp, splashBlocked.remain);
-      unit.hp = Math.max(0, unit.hp - splashReal);
-      unit.justHit = true;
-      splashTotal += splashReal;
-      if (withFx && splashReal > 0) fireStatusFx(enemyTeamKey, idx + 1, "area");
-    });
-
-    if (withFx && splashTotal > 0) {
-      appendLog(`${attacker.name} 的范围冲击波及其余目标，额外造成 ${splashTotal} 点伤害`, "crit");
-    }
-  }
-
-  return real + splashTotal;
-}
-
-function stepRound() {
-  if (!teamAlive(state.teamA) || !teamAlive(state.teamB)) return;
-
-  state.round += 1;
-  appendLog(`===== 第 ${state.round} 回合 =====`, "round");
-
-  let roundDmgA = 0;
-  let roundDmgB = 0;
-
-  for (let i = 0; i < state.teamA.length; i++) {
-    roundDmgA += attack(state.teamA[i], "A", i + 1, state.teamB, "B", true);
-    render();
-    if (!teamAlive(state.teamB)) break;
-  }
-
-  if (teamAlive(state.teamB)) {
-    for (let i = 0; i < state.teamB.length; i++) {
-      roundDmgB += attack(state.teamB[i], "B", i + 1, state.teamA, "A", true);
-      render();
-      if (!teamAlive(state.teamA)) break;
-    }
-  }
-
-  state.hpA.push(teamTotalHp(state.teamA));
-  state.hpB.push(teamTotalHp(state.teamB));
-  state.dmgA.push(roundDmgA);
-  state.dmgB.push(roundDmgB);
-
-  if (!teamAlive(state.teamA) || !teamAlive(state.teamB)) {
-    const winner = teamAlive(state.teamA) ? "我的植物队" : "敌方植物队";
-    state.battleState = `${winner}胜利`;
-    appendLog(`战斗结束：${winner} 胜利`, "end");
-    stopAuto();
-  } else {
-    state.battleState = "战斗中";
-    render();
-  }
-}
-
-function canSwap() {
-  return !state.running && state.round === 0;
-}
-
-function swapPlants(teamKey, slotIndex, dir) {
-  if (!canSwap()) {
-    appendLog("战斗开始后不可换位，请先重置。", "dodge");
-    return;
-  }
-
-  const arr = teamKey === "A" ? state.teamA : state.teamB;
-  const j = slotIndex + dir;
-  if (j < 0 || j >= arr.length) return;
-
-  const temp = arr[slotIndex];
-  arr[slotIndex] = arr[j];
-  arr[j] = temp;
-
-  appendLog(`${teamKey === "A" ? "我方" : "敌方"}完成换位：${slotIndex + 1}号位 <-> ${j + 1}号位`, "round");
-  render();
-}
-
-function stopAuto() {
-  if (state.timer) {
-    clearInterval(state.timer);
-    state.timer = null;
-  }
-  state.running = false;
-  el.start.textContent = "自动战斗";
-  if (teamAlive(state.teamA) && teamAlive(state.teamB) && state.round > 0) {
-    state.battleState = "暂停";
-  }
-  render();
-}
-
-function startAuto() {
-  if (state.running) {
-    stopAuto();
-    return;
-  }
-
-  if (!teamAlive(state.teamA) || !teamAlive(state.teamB)) return;
-
-  state.running = true;
-  state.battleState = "自动中";
-  el.start.textContent = "暂停";
-  render();
-
-  state.timer = setInterval(() => {
-    if (!teamAlive(state.teamA) || !teamAlive(state.teamB)) {
-      stopAuto();
-      return;
-    }
-    stepRound();
-  }, Number(el.speed.value));
-}
-
-function plantCard(p, slot, teamKey) {
-  const ratio = Math.max(0, p.hp) / p.maxHp;
-  const roleText = roleLabel(p.role);
-  const allowSwap = canSwap();
-  const status = [];
-  if (p.shield > 0) status.push(`盾 ${p.shield}`);
-  if (p.poisonTurns > 0) status.push(`毒 ${p.poisonTurns}`);
-  if (p.slowTurns > 0) status.push(`缓 ${p.slowTurns}`);
-
-  const badges = [];
-  if (p.shield > 0) badges.push(`<span class="badge badge-shield" title="护盾"><span class="badge-icon">${iconSvg("shield")}</span><span class="badge-value">${p.shield}</span></span>`);
-  if (p.poisonTurns > 0) badges.push(`<span class="badge badge-poison" title="中毒"><span class="badge-icon">${iconSvg("poison")}</span><span class="badge-value">${p.poisonTurns}</span></span>`);
-  if (p.slowTurns > 0) badges.push(`<span class="badge badge-slow" title="减速"><span class="badge-icon">${iconSvg("slow")}</span><span class="badge-value">${p.slowTurns}</span></span>`);
-
-  const fallback = escapeHtml(buildFallbackImage(p.name, p.role));
-  const image = escapeHtml(getPlantImage(p));
-  const name = escapeHtml(p.name);
-
-  return `
-    <div class="fighter card ${p.hp <= 0 ? "dead" : ""} ${p.justHit ? "hit" : ""}" data-team="${teamKey}" data-slot="${slot}" draggable="${allowSwap ? "true" : "false"}">
-      <div class="fighter-slot">${slot}</div>
-      <div class="status-badges">${badges.join("")}</div>
-      <div class="fighter-sprite-wrap">
-        <div class="fighter-shadow"></div>
-        <img class="fighter-sprite ${teamKey === "B" ? "enemy" : "ally"}" src="${image}" alt="${name}" onerror="this.onerror=null;this.src='${fallback}'" />
-      </div>
-      <div class="fighter-info">
-        <div class="name-row">
-          <div class="name">${name}</div>
-          <span class="role-chip">${roleText}</span>
-        </div>
-        <div class="meta">${slot}号位 · ${attackModeLabel(getAttackMode(p))}</div>
-        <div class="hpbar"><div class="hpfill" style="width:${ratio * 100}%"></div></div>
-        <div class="meta">HP ${Math.max(0, p.hp)} / ${p.maxHp} · ${status.length ? status.join(" · ") : "状态正常"}</div>
-      </div>
-    </div>
-  `;
-}
-
-function drawLineChart(canvas, arrA, arrB, colorA, colorB, labelA, labelB) {
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  const pad = 30;
-  ctx.clearRect(0, 0, w, h);
-
-  const maxY = Math.max(1, ...arrA, ...arrB);
-  const maxX = Math.max(1, arrA.length - 1, arrB.length - 1);
-
-  function px(i) {
-    return pad + (i / maxX) * (w - pad * 2);
-  }
-  function py(v) {
-    return h - pad - (v / maxY) * (h - pad * 2);
-  }
-
-  ctx.strokeStyle = "#d0d5cf";
-  ctx.strokeRect(pad, pad, w - pad * 2, h - pad * 2);
-
-  function drawSeries(arr, color) {
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    arr.forEach((v, i) => {
-      const x = px(i);
-      const y = py(v);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.stroke();
-  }
-
-  drawSeries(arrA, colorA);
-  drawSeries(arrB, colorB);
-
-  ctx.fillStyle = colorA;
-  ctx.fillRect(18, 10, 12, 12);
-  ctx.fillStyle = "#000";
-  ctx.fillText(labelA, 34, 20);
-
-  ctx.fillStyle = colorB;
-  ctx.fillRect(130, 10, 12, 12);
-  ctx.fillStyle = "#000";
-  ctx.fillText(labelB, 146, 20);
-}
-
-function drawBarChart(canvas, arrA, arrB) {
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width;
-  const h = canvas.height;
-  const pad = 30;
-  ctx.clearRect(0, 0, w, h);
-
-  const n = Math.max(arrA.length, arrB.length);
-  const maxY = Math.max(1, ...arrA, ...arrB);
-  const groupW = (w - pad * 2) / Math.max(1, n);
-
-  ctx.strokeStyle = "#d0d5cf";
-  ctx.strokeRect(pad, pad, w - pad * 2, h - pad * 2);
-
-  for (let i = 0; i < n; i++) {
-    const a = arrA[i] || 0;
-    const b = arrB[i] || 0;
-    const x = pad + i * groupW;
-    const bw = groupW * 0.35;
-    const ah = (a / maxY) * (h - pad * 2);
-    const bh = (b / maxY) * (h - pad * 2);
-
-    ctx.fillStyle = "#2b8a3e";
-    ctx.fillRect(x + groupW * 0.1, h - pad - ah, bw, ah);
-
-    ctx.fillStyle = "#c92a2a";
-    ctx.fillRect(x + groupW * 0.55, h - pad - bh, bw, bh);
-  }
-
-  ctx.fillStyle = "#2b8a3e";
-  ctx.fillRect(18, 10, 12, 12);
-  ctx.fillStyle = "#000";
-  ctx.fillText("我方回合伤害", 34, 20);
-
-  ctx.fillStyle = "#c92a2a";
-  ctx.fillRect(140, 10, 12, 12);
-  ctx.fillStyle = "#000";
-  ctx.fillText("敌方回合伤害", 156, 20);
-}
-
-function buildTemplateFromComposition(composition) {
-  return composition.map(i => {
-    const idx = Math.max(0, Math.min(plantLibrary.length - 1, i));
-    return { ...plantLibrary[idx] };
-  });
-}
-
-function renderSlotPicker(teamKey) {
-  const container = teamKey === "A" ? el.slotPickerA : el.slotPickerB;
-  const composition = teamKey === "A" ? teamCompositionA : teamCompositionB;
-  container.innerHTML = composition.map((selectedIdx, i) => {
-    const options = plantLibrary.map((p, j) => {
-      const roleText = p.role === "defender" ? "防御" : p.role === "attacker" ? "输出" : "辅助";
-      return `<option value="${j}" ${j === selectedIdx ? "selected" : ""}>${p.name}（${roleText} HP:${p.hp} ATK:${p.atk}）</option>`;
-    }).join("");
-    return `<div class="slot-picker-row">
-      <span class="slot-label">${i + 1}号位${i === 0 ? "（前排）" : ""}</span>
-      <select class="slot-select" data-team="${teamKey}" data-slot="${i}">${options}</select>
-    </div>`;
-  }).join("");
-}
-
-function renderLibrary() {
-  el.plantLibraryList.innerHTML = plantLibrary.map((p, i) => {
-    const roleText = roleLabel(p.role);
-    const formRows = fields.map(f => {
-      const inputId = `lib-${i}-${f.key}`;
-      if (f.type === "select") {
-        let pool = [];
-        if (f.key === "role") pool = [["defender", "防御"], ["attacker", "输出"], ["support", "辅助"]];
-        else if (f.key === "attackMode") pool = [["melee", "近战突进"], ["ranged", "远程弹道"], ["area", "范围爆发"]];
-        else pool = [["normal", "普通"], ["poison", "中毒"], ["shield", "护盾"], ["slow", "减速"]];
-        const opts = pool.map(([value, label]) => `<option value="${value}" ${p[f.key] === value ? "selected" : ""}>${label}</option>`).join("");
-        return `<label>${f.label}<select id="${inputId}">${opts}</select></label>`;
-      }
-      return `<label>${f.label}<input id="${inputId}" type="${f.type}" step="${f.step || "1"}" value="${escapeHtml(p[f.key] ?? "")}" /></label>`;
-    }).join("");
-    const libImage = escapeHtml(getPlantImage(p));
-    const libFallback = escapeHtml(buildFallbackImage(p.name, p.role));
-    return `<div class="library-item" data-idx="${i}">
-      <div class="library-item-summary">
-        <img class="lib-thumb" src="${libImage}" alt="${escapeHtml(p.name)}" onerror="this.onerror=null;this.src='${libFallback}'" />
-        <span class="lib-name">${escapeHtml(p.name)}</span>
-        <span class="lib-tag">${roleText}</span>
-        <span class="lib-stat">HP ${p.hp}</span>
-        <span class="lib-stat">ATK ${p.atk}</span>
-        <span class="lib-stat">DEF ${p.df}</span>
-        <span class="lib-stat">攻击: ${attackModeLabel(getAttackMode(p))}</span>
-        <span class="lib-stat">技能: ${escapeHtml(p.skillName)}(${p.skillType})</span>
-        <div class="lib-actions">
-          <button class="ghost btn-lib-edit" data-idx="${i}">编辑</button>
-          <button class="btn-danger btn-lib-del" data-idx="${i}">删除</button>
-        </div>
-      </div>
-      <div class="library-item-form" id="lib-form-${i}" style="display:none">
-        ${formRows}
-        <div class="lib-form-actions">
-          <button class="btn-lib-save" data-idx="${i}">保存</button>
-          <button class="ghost btn-lib-cancel" data-idx="${i}">取消</button>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
-}
-
-function applyCompositionFromPicker(teamKey) {
-  const container = teamKey === "A" ? el.slotPickerA : el.slotPickerB;
-  const composition = teamKey === "A" ? teamCompositionA : teamCompositionB;
-  container.querySelectorAll(".slot-select").forEach((sel, i) => {
-    const idx = parseInt(sel.value, 10);
-    if (!Number.isNaN(idx) && idx >= 0 && idx < plantLibrary.length) {
-      composition[i] = idx;
-    }
-  });
+function getImg(p) {
+  return p.image && String(p.image).trim() ? p.image.trim() : buildSvgFallback(p.name, p.role);
 }
 
 function sanitizePlant(p) {
-  p.name = String(p.name || "植物").trim() || "植物";
-  p.image = String(p.image || "").trim();
-  if (!["defender", "attacker", "support"].includes(p.role)) p.role = "attacker";
-  p.hp = Math.max(1, Math.floor(p.hp));
-  p.atk = Math.max(1, Math.floor(p.atk));
-  p.df = Math.max(0, Math.floor(p.df));
-  p.crit = Math.min(1, Math.max(0, p.crit));
-  p.critDmg = Math.max(1, p.critDmg);
-  p.dodge = Math.min(0.95, Math.max(0, p.dodge));
-  p.skillName = String(p.skillName || "技能").trim() || "技能";
-  p.skillCoef = Math.max(1, p.skillCoef);
-  p.skillCd = Math.max(0, Math.floor(p.skillCd));
-  if (!["normal", "poison", "shield", "slow"].includes(p.skillType)) p.skillType = "normal";
-  if (!["melee", "ranged", "area"].includes(p.attackMode)) p.attackMode = p.role === "defender" ? "melee" : "ranged";
+  p.name       = String(p.name  || "植物").trim() || "植物";
+  p.image      = String(p.image || "").trim();
+  if (!["defender","attacker","support"].includes(p.role)) p.role = "attacker";
+  if (!["melee","ranged","area"].includes(p.attackMode))   p.attackMode = p.role === "defender" ? "melee" : "ranged";
+  p.hp       = Math.max(1,    Math.floor(toNum(p.hp,      1000)));
+  p.atk      = Math.max(1,    Math.floor(toNum(p.atk,      100)));
+  p.df       = Math.max(0,    Math.floor(toNum(p.df,         0)));
+  p.crit     = Math.min(1, Math.max(0,   toNum(p.crit,    0.10)));
+  p.critDmg  = Math.max(1,               toNum(p.critDmg,  1.5));
+  p.dodge    = Math.min(.95, Math.max(0, toNum(p.dodge,   0.00)));
+  p.skillName= String(p.skillName || "技能").trim() || "技能";
+  p.skillCoef= Math.max(1,               toNum(p.skillCoef, 1.5));
+  p.skillCd  = Math.max(0, Math.floor(   toNum(p.skillCd,    2)));
+  if (!["normal","poison","shield","slow"].includes(p.skillType)) p.skillType = "normal";
 }
-
 plantLibrary.forEach(sanitizePlant);
 
-function saveConfig() {
-  readSettingInputs();
-  const payload = {
-    plantLibrary,
-    teamCompositionA,
-    teamCompositionB,
-    effectSettings
-  };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  appendLog("配置已保存到本地浏览器。", "end");
+function roleLabel(r) { return r === "defender" ? "防御" : r === "support" ? "辅助" : "输出"; }
+function modeLabel(m) { return m === "melee" ? "近战" : m === "area" ? "范围" : "远程"; }
+
+// ─────────────────── DOM refs ─────────────────────────
+const elLog           = document.getElementById("log");
+const elPhaseChip     = document.getElementById("phaseChip");
+const elRoundNum      = document.getElementById("roundNum");
+const elDayTimer      = document.getElementById("dayTimer");
+const elTimerChip     = document.getElementById("timerChip");
+const elLives         = document.getElementById("livesDisplay");
+const elScore         = document.getElementById("scoreDisplay");
+const elPlantingGrid  = document.getElementById("plantingGrid");
+const elBackpackItems = document.getElementById("backpackItems");
+const elBackpackCount = document.getElementById("backpackCount");
+const elCollect       = document.getElementById("collectionZone");
+const elBattleArea    = document.getElementById("battleArea");
+const elCollectHint   = document.getElementById("collectionHint");
+const elLibraryList   = document.getElementById("plantLibraryList");
+const elLibraryBody   = document.getElementById("libraryBody");
+const elLibraryToggle = document.getElementById("libraryToggle");
+
+// ─────────────────── Game State ──────────────────────
+const gs = {
+  phase:       "idle",
+  round:       0,
+  score:       0,
+  lives:       5,
+  dayLeft:     DAY_DURATION,
+  dayHandle:   null,
+  spawnHandle: null,
+
+  spawned:     [],
+  backpack:    [],
+  selectedId:  null,
+
+  grid:     Array(SLOTS).fill(null),
+  monsters: [],
+  mQueue:   [],
+  nextSpawn: 0,
+
+  animId:     null,
+  lastFrame:  0,
+  lastCombat: 0,
+  lastPoison: 0,
+};
+
+// ─────────────────── Logging ─────────────────────────
+function addLog(text, type) {
+  if (type === undefined) type = "hit";
+  const d = document.createElement("div");
+  d.className   = "log-line log-" + type;
+  d.textContent = text;
+  elLog.appendChild(d);
+  elLog.scrollTop = elLog.scrollHeight;
 }
 
-function loadConfig() {
-  const text = localStorage.getItem(STORAGE_KEY);
-  if (!text) {
-    appendLog("未找到已保存配置。", "dodge");
+// ─────────────────── HUD ─────────────────────────────
+function updateHUD() {
+  elRoundNum.textContent = gs.round;
+  if (elLives) elLives.textContent = gs.lives;
+  if (elScore) elScore.textContent = gs.score;
+  const labels = { idle:"等待开始", day:"白天 — 收集中", night:"夜晚 — 刷怪中", gameover:"游戏结束" };
+  elPhaseChip.textContent = labels[gs.phase] || gs.phase;
+  elPhaseChip.className   = "chip phase-chip phase-" + gs.phase;
+  elTimerChip.style.display = gs.phase === "day" ? "" : "none";
+  if (gs.phase === "day") elDayTimer.textContent = gs.dayLeft;
+}
+
+// ─────────────────── Grid ────────────────────────────
+function initGrid() {
+  elPlantingGrid.innerHTML = "";
+  for (let i = 0; i < SLOTS; i++) {
+    const s = document.createElement("div");
+    s.className    = "plant-slot";
+    s.dataset.slot = i;
+    s.addEventListener("click", onSlotClick);
+    elPlantingGrid.appendChild(s);
+  }
+  renderGrid();
+}
+
+function renderGrid() {
+  for (let i = 0; i < SLOTS; i++) {
+    const el    = elPlantingGrid.children[i];
+    if (!el) continue;
+    const plant = gs.grid[i];
+    const canHL = gs.selectedId !== null && !plant && gs.phase === "day";
+
+    el.className = "plant-slot" +
+      (plant ? " has-plant"      : "") +
+      (canHL ? " slot-highlight" : "");
+
+    if (plant) {
+      const ratio = Math.max(0, plant.hp) / plant.maxHp;
+      const cls   = ratio < 0.25 ? "crit" : ratio < 0.5 ? "low" : "";
+      const pDef  = plantLibrary[plant.plantIdx];
+      const img   = escHtml(getImg(pDef));
+      const fb    = escHtml(buildSvgFallback(pDef.name, pDef.role));
+      const shieldBadge = plant.shield > 0
+        ? '<div class="slot-shield-badge">🛡' + plant.shield + "</div>" : "";
+      const statusParts = [];
+      if (plant.poisonTurns > 0) statusParts.push("💧" + plant.poisonTurns);
+      if (plant.slowTurns   > 0) statusParts.push("❄"  + plant.slowTurns);
+      el.innerHTML =
+        shieldBadge +
+        '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
+          '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
+        '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
+        '<div class="slot-hpbar"><div class="slot-hpfill ' + cls + '" style="width:' + (ratio*100) + '%"></div></div>' +
+        '<div class="slot-hptext">' + Math.max(0,plant.hp) + "/" + plant.maxHp +
+          (statusParts.length ? " · " + statusParts.join(" ") : "") + "</div>";
+    } else {
+      const col = i % LANES + 1;
+      const row = Math.floor(i / LANES) + 1;
+      el.innerHTML = '<div class="slot-empty">' + (canHL ? "点击\n放置" : col + "-" + row) + "</div>";
+    }
+  }
+}
+
+function onSlotClick(e) {
+  const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+  const plant = gs.grid[idx];
+
+  if (plant) {
+    if (gs.phase === "day") {
+      gs.grid[idx] = null;
+      gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx });
+      addLog(plant.name + " 已取回到背包", "dodge");
+      renderBackpack();
+      renderGrid();
+    }
     return;
   }
+  if (gs.phase !== "day" || !gs.selectedId) return;
 
+  const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
+  if (bpIdx === -1) { gs.selectedId = null; renderBackpack(); return; }
+
+  const item  = gs.backpack.splice(bpIdx, 1)[0];
+  const pDef  = plantLibrary[item.plantIdx];
+  const baseInterval = pDef.attackMode === "melee" ? 2200 : pDef.attackMode === "area" ? 2000 : 1600;
+
+  gs.grid[idx] = Object.assign({}, pDef, {
+    id:             uid(),
+    plantIdx:       item.plantIdx,
+    maxHp:          pDef.hp,
+    hp:             pDef.hp,
+    shield:         0,
+    poisonTurns:    0,
+    poisonDmg:      0,
+    slowTurns:      0,
+    currentCd:      0,
+    lane:           idx % LANES,
+    row:            Math.floor(idx / LANES),
+    slotIdx:        idx,
+    lastAttackTime: 0,
+    attackInterval: baseInterval,
+  });
+
+  gs.selectedId = null;
+  addLog(pDef.name + " 已种植到 " + (idx % LANES + 1) + "-" + (Math.floor(idx / LANES) + 1) + " 位置", "end");
+  renderBackpack();
+  renderGrid();
+}
+
+// ─────────────────── Backpack ────────────────────────
+function renderBackpack() {
+  if (elBackpackCount) elBackpackCount.textContent = gs.backpack.length + " 个植物";
+  elBackpackItems.innerHTML = gs.backpack.map(function(item) {
+    const p   = plantLibrary[item.plantIdx];
+    const img = escHtml(getImg(p));
+    const fb  = escHtml(buildSvgFallback(p.name, p.role));
+    const sel = item.id === gs.selectedId;
+    return '<div class="bp-item' + (sel ? " bp-selected" : "") + '" data-id="' + item.id + '">' +
+      '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
+      '<div class="bp-name">' + escHtml(p.name) + "</div>" +
+      '<div class="bp-stat">HP ' + p.hp + ' ATK ' + p.atk + "</div>" +
+      "</div>";
+  }).join("");
+
+  elBackpackItems.querySelectorAll(".bp-item").forEach(function(el) {
+    el.addEventListener("click", function() {
+      const id = parseInt(el.dataset.id, 10);
+      gs.selectedId = gs.selectedId === id ? null : id;
+      renderBackpack();
+      renderGrid();
+      if (gs.selectedId !== null) {
+        const it = gs.backpack.find(function(b) { return b.id === id; });
+        if (it) addLog("已选中 " + plantLibrary[it.plantIdx].name + "，点击种植区空格放置", "dodge");
+      }
+    });
+  });
+}
+
+// ─────────────────── Collection Zone ─────────────────
+function spawnCollectionPlant() {
+  if (gs.phase !== "day") return;
+  if (gs.spawned.length >= MAX_SPAWNED) return;
+
+  const plantIdx = Math.floor(Math.random() * plantLibrary.length);
+  const pDef     = plantLibrary[plantIdx];
+  const id       = uid();
+  const x        = 8  + Math.random() * 78;
+  const y        = 12 + Math.random() * 68;
+
+  const el = document.createElement("div");
+  el.className   = "spawned-plant";
+  el.style.left  = x + "%";
+  el.style.top   = y + "%";
+  el.dataset.id  = id;
+
+  const img = document.createElement("img");
+  img.src         = getImg(pDef);
+  img.alt         = pDef.name;
+  img.onerror     = function() { img.src = buildSvgFallback(pDef.name, pDef.role); };
+
+  const lbl = document.createElement("div");
+  lbl.className   = "spawned-label";
+  lbl.textContent = pDef.name;
+
+  el.appendChild(img);
+  el.appendChild(lbl);
+  el.addEventListener("click", function() { collectPlant(id); });
+  elCollect.appendChild(el);
+  gs.spawned.push({ id: id, plantIdx: plantIdx, el: el });
+
+  setTimeout(function() {
+    const idx = gs.spawned.findIndex(function(s) { return s.id === id; });
+    if (idx !== -1) { gs.spawned[idx].el.remove(); gs.spawned.splice(idx, 1); }
+  }, 13000);
+}
+
+function collectPlant(id) {
+  const idx = gs.spawned.findIndex(function(s) { return s.id === id; });
+  if (idx === -1) return;
+  const sp   = gs.spawned[idx];
+  const pDef = plantLibrary[sp.plantIdx];
+  sp.el.classList.add("collected");
+  setTimeout(function() { sp.el.remove(); }, 350);
+  gs.spawned.splice(idx, 1);
+  gs.backpack.push({ id: uid(), plantIdx: sp.plantIdx });
+  renderBackpack();
+  addLog("收集了 " + pDef.name + "！", "end");
+}
+
+// ─────────────────── Day Phase ───────────────────────
+function startDay() {
+  gs.phase   = "day";
+  gs.dayLeft = DAY_DURATION;
+  gs.spawned = [];
+  elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
+  if (elCollectHint) elCollectHint.style.display = "";
+
+  updateHUD();
+  addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
+
+  gs.dayHandle = setInterval(function() {
+    gs.dayLeft -= 1;
+    updateHUD();
+    if (gs.dayLeft <= 0) {
+      clearInterval(gs.dayHandle);
+      gs.dayHandle = null;
+      endDay();
+    }
+  }, 1000);
+
+  spawnCollectionPlant();
+  gs.spawnHandle = setInterval(spawnCollectionPlant, SPAWN_INTERVAL);
+}
+
+function endDay() {
+  clearInterval(gs.spawnHandle);
+  gs.spawnHandle = null;
+  gs.spawned.forEach(function(s) { s.el.remove(); });
+  gs.spawned     = [];
+  gs.selectedId  = null;
+  if (elCollectHint) elCollectHint.style.display = "none";
+  addLog("白天结束！2 秒后进入夜晚…", "round");
+  renderBackpack();
+  renderGrid();
+  setTimeout(startNight, 2000);
+}
+
+// ─────────────────── Night Phase ─────────────────────
+function buildQueue() {
+  const count = 5 + (gs.round - 1) * 2;
+  const arr   = [];
+  for (let i = 0; i < count; i++) {
+    const maxType = Math.min(monsterTypes.length - 1, Math.floor(gs.round / 2));
+    const ti      = Math.floor(Math.random() * (maxType + 1));
+    const t       = monsterTypes[ti];
+    const scale   = 1 + (gs.round - 1) * 0.15;
+    arr.push({
+      id:             uid(),
+      typeIdx:        ti,
+      name:           t.name,
+      emoji:          t.emoji,
+      hp:             Math.floor(t.hp  * scale),
+      maxHp:          Math.floor(t.hp  * scale),
+      atk:            Math.floor(t.atk * scale),
+      speed:          t.speed,
+      attackInterval: t.attackInterval,
+      reward:         t.reward,
+      lane:           Math.floor(Math.random() * LANES),
+      y:              0,
+      eating:         false,
+      eatRow:         -1,
+      lastAttack:     0,
+      slowUntil:      0,
+      poisonTurns:    0,
+      poisonDmg:      0,
+      dead:           false,
+      el:             null,
+    });
+  }
+  return arr;
+}
+
+function startNight() {
+  gs.phase     = "night";
+  gs.monsters  = [];
+  gs.mQueue    = buildQueue();
+  gs.nextSpawn  = performance.now() + 1200;
+  gs.lastFrame  = performance.now();
+  gs.lastCombat = performance.now();
+  gs.lastPoison = performance.now();
+  if (elCollectHint) elCollectHint.style.display = "none";
+  updateHUD();
+  addLog("════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物 ════", "round");
+  gs.animId = requestAnimationFrame(nightLoop);
+}
+
+// ─────────────────── Night Loop ──────────────────────
+function nightLoop(ts) {
+  if (gs.phase !== "night") return;
+
+  const dt = Math.min((ts - gs.lastFrame) / 1000, 0.1);
+  gs.lastFrame = ts;
+
+  // Spawn from queue
+  if (gs.mQueue.length > 0 && ts >= gs.nextSpawn) {
+    doSpawn(gs.mQueue.shift());
+    gs.nextSpawn = ts + 3000 + Math.random() * 2000;
+  }
+
+  // Move / eat monsters
+  for (let mi = 0; mi < gs.monsters.length; mi++) {
+    const m = gs.monsters[mi];
+    if (m.dead) continue;
+
+    if (m.eating) {
+      const slotIdx = m.eatRow * LANES + m.lane;
+      const target  = gs.grid[slotIdx];
+      if (!target || target.hp <= 0) {
+        m.eating  = false;
+        m.eatRow  = -1;
+        gs.grid[slotIdx] = null;
+        renderGrid();
+        if (m.el) m.el.classList.remove("eating");
+      } else {
+        monsterAttack(m, target, ts, slotIdx);
+      }
+    } else {
+      const effectiveSpeed = ts < m.slowUntil ? m.speed * 0.35 : m.speed;
+      m.y += effectiveSpeed * dt;
+
+      let blocked = false;
+      for (let r = 0; r < ROWS; r++) {
+        if (m.y >= Y_ROW[r]) {
+          const slotIdx = r * LANES + m.lane;
+          const plant   = gs.grid[slotIdx];
+          if (plant && plant.hp > 0) {
+            m.y      = Y_ROW[r];
+            m.eating = true;
+            m.eatRow = r;
+            if (m.el) m.el.classList.add("eating");
+            blocked = true;
+            break;
+          }
+        }
+      }
+
+      if (!blocked && m.y >= Y_BASE) {
+        m.y    = Y_BASE;
+        m.dead = true;
+        gs.lives -= 1;
+        updateHUD();
+        addLog("⚠ " + m.name + " 穿越了防线！剩余生命：" + gs.lives, "crit");
+        if (m.el) { m.el.remove(); m.el = null; }
+        if (gs.lives <= 0) { endGame(); return; }
+      }
+    }
+  }
+
+  // Plant attacks on tick
+  if (ts - gs.lastCombat >= COMBAT_TICK) {
+    gs.lastCombat = ts;
+    doPlantAttacks(ts);
+  }
+
+  // Poison ticks
+  if (ts - gs.lastPoison >= POISON_TICK) {
+    gs.lastPoison = ts;
+    doPoison();
+  }
+
+  // Clean dead monsters
+  gs.monsters = gs.monsters.filter(function(m) {
+    if (m.dead && m.el) { m.el.remove(); m.el = null; }
+    return !m.dead;
+  });
+
+  updateMonsterPositions();
+  renderGrid();
+
+  if (gs.monsters.length === 0 && gs.mQueue.length === 0) { endNight(); return; }
+
+  gs.animId = requestAnimationFrame(nightLoop);
+}
+
+// ─────────────────── Spawn Monster ───────────────────
+function doSpawn(m) {
+  const el = document.createElement("div");
+  el.className  = "monster";
+  el.dataset.id = m.id;
+  el.style.left = ((m.lane + 0.5) / LANES * 100) + "%";
+  el.style.top  = "0px";
+  el.innerHTML  =
+    '<div class="monster-emoji">'  + m.emoji          + "</div>" +
+    '<div class="monster-name">'   + escHtml(m.name)   + "</div>" +
+    '<div class="monster-hpbar"><div class="monster-hpfill" style="width:100%"></div></div>' +
+    '<div class="monster-status"></div>';
+  elBattleArea.appendChild(el);
+  m.el = el;
+  gs.monsters.push(m);
+}
+
+// ─────────────────── Monster positions ───────────────
+function yToPx(y) {
+  if (y <= 1) return y * MONSTER_ZONE_H;
+  return MONSTER_ZONE_H + (y - 1) * PLANTING_ROW_H;
+}
+
+function updateMonsterPositions() {
+  for (let i = 0; i < gs.monsters.length; i++) {
+    const m = gs.monsters[i];
+    if (!m.el) continue;
+    m.el.style.top = yToPx(m.y) + "px";
+    const fill = m.el.querySelector(".monster-hpfill");
+    if (fill) fill.style.width = Math.max(0, m.hp / m.maxHp) * 100 + "%";
+    const statEl = m.el.querySelector(".monster-status");
+    if (statEl) {
+      const parts = [];
+      if (m.slowUntil > performance.now()) parts.push("❄减速");
+      if (m.poisonTurns > 0)               parts.push("💧" + m.poisonTurns);
+      statEl.textContent = parts.join(" ");
+    }
+  }
+}
+
+// ─────────────────── Monster attacks plant ───────────
+function monsterAttack(m, plant, ts, slotIdx) {
+  if (ts - m.lastAttack < m.attackInterval) return;
+  m.lastAttack = ts;
+
+  let dmg = Math.max(1, m.atk - Math.floor(plant.df * 0.45));
+
+  if (plant.shield > 0) {
+    const absorbed = Math.min(plant.shield, dmg);
+    plant.shield  -= absorbed;
+    dmg           -= absorbed;
+    if (dmg <= 0) {
+      addLog(m.name + " 攻击 " + plant.name + " — 护盾全吸收！(盾剩 " + plant.shield + ")", "dodge");
+      return;
+    }
+  }
+
+  plant.hp = Math.max(0, plant.hp - dmg);
+  addLog(m.name + " 攻击 " + plant.name + " -" + dmg + (plant.shield > 0 ? " (盾剩" + plant.shield + ")" : ""), "hit");
+
+  if (plant.hp <= 0) {
+    gs.grid[slotIdx] = null;
+    m.eating         = false;
+    m.eatRow         = -1;
+    if (m.el) m.el.classList.remove("eating");
+    addLog(plant.name + " 被击倒了！", "crit");
+    renderGrid();
+  }
+}
+
+// ─────────────────── Plant attacks monsters ──────────
+function doPlantAttacks(ts) {
+  for (let i = 0; i < SLOTS; i++) {
+    const plant = gs.grid[i];
+    if (!plant || plant.hp <= 0) continue;
+    if (ts - plant.lastAttackTime < plant.attackInterval) continue;
+    plant.lastAttackTime = ts;
+
+    const lane = i % LANES;
+    if (plant.slowTurns > 0) plant.slowTurns -= 1;
+
+    const laneMs = gs.monsters.filter(function(m) { return !m.dead && m.lane === lane; });
+    if (!laneMs.length) continue;
+
+    // Target closest monster (highest y value = nearest to plants)
+    const target = laneMs.reduce(function(a, b) { return a.y > b.y ? a : b; });
+
+    if (plant.attackMode === "area") {
+      // Area: attack all monsters in lane
+      laneMs.forEach(function(mt) { plantAttack(plant, mt, ts, mt === target); });
+    } else {
+      plantAttack(plant, target, ts, true);
+    }
+  }
+}
+
+// ─────────────────── Plant single attack ─────────────
+function plantAttack(plant, target, ts, fireFx) {
+  let usingSkill = false;
+  let coef       = 1;
+  if (plant.currentCd === 0 && plant.skillCoef > 1) {
+    usingSkill      = true;
+    coef            = plant.skillCoef;
+    plant.currentCd = plant.skillCd;
+  } else if (plant.currentCd > 0) {
+    plant.currentCd -= 1;
+  }
+
+  let dmg     = Math.floor(plant.atk * coef);
+  let critTag = "";
+  if (Math.random() < plant.crit) {
+    dmg     = Math.floor(dmg * plant.critDmg);
+    critTag = "【暴击】";
+  }
+  dmg = Math.max(1, dmg);
+
+  target.hp = Math.max(0, target.hp - dmg);
+
+  const skillTag = usingSkill ? " 【" + plant.skillName + "】" : "";
+  addLog(plant.name + skillTag + " → " + target.name + " -" + dmg + critTag, critTag ? "crit" : "hit");
+
+  if (usingSkill) applyPlantSkill(plant, target);
+  if (fireFx)     fireProjFx(plant, target);
+
+  if (target.hp <= 0) {
+    target.dead = true;
+    if (target.eating) { target.eating = false; target.eatRow = -1; }
+    gs.score += (target.reward || 10);
+    updateHUD();
+    addLog("✨ " + plant.name + " 击败了 " + target.name + "！+" + (target.reward || 10) + "分", "end");
+  }
+}
+
+// ─────────────────── Skill effects ───────────────────
+function applyPlantSkill(plant, monster) {
+  const type = plant.skillType;
+  if (type === "poison") {
+    const turns = plant.skillCd + 2;
+    const dpt   = Math.floor(plant.atk * 0.25);
+    monster.poisonTurns = Math.max(monster.poisonTurns, turns);
+    monster.poisonDmg   = Math.max(monster.poisonDmg,   dpt);
+    addLog(monster.name + " 进入中毒状态（" + turns + " 次，每次 -" + dpt + "）", "crit");
+  } else if (type === "slow") {
+    const dur = (plant.skillCd + 1) * 2000;
+    monster.slowUntil = Math.max(monster.slowUntil, performance.now() + dur);
+    addLog(monster.name + " 被减速 " + (dur / 1000) + "s！", "dodge");
+  } else if (type === "shield") {
+    const gain = Math.floor(plant.atk * plant.skillCoef * 0.85);
+    plant.shield += gain;
+    addLog(plant.name + " 获得护盾 +" + gain + "（总计 " + plant.shield + "）", "end");
+  }
+  // skillType "normal": extra damage already applied via skillCoef
+}
+
+// ─────────────────── Poison ticks ────────────────────
+function doPoison() {
+  for (let i = 0; i < gs.monsters.length; i++) {
+    const m = gs.monsters[i];
+    if (m.dead || m.poisonTurns <= 0 || !m.poisonDmg) continue;
+    m.hp = Math.max(0, m.hp - m.poisonDmg);
+    m.poisonTurns -= 1;
+    addLog(m.name + " 中毒持续伤害 -" + m.poisonDmg + "（剩余 " + m.poisonTurns + " 次）", "dodge");
+    if (m.hp <= 0) {
+      m.dead = true;
+      if (m.eating) { m.eating = false; m.eatRow = -1; }
+      gs.score += (m.reward || 10);
+      updateHUD();
+      addLog(m.name + " 因中毒倒下！+" + (m.reward || 10) + "分", "end");
+    }
+  }
+}
+
+// ─────────────────── Projectile FX ───────────────────
+function fireProjFx(plant, monster) {
+  if (!monster.el) return;
+  const slotEl = elPlantingGrid.children[plant.slotIdx];
+  if (!slotEl) return;
+
+  const wrapRect = elBattleArea.getBoundingClientRect();
+  const slotRect = slotEl.getBoundingClientRect();
+  const monRect  = monster.el.getBoundingClientRect();
+
+  const x1 = slotRect.left + slotRect.width  / 2 - wrapRect.left;
+  const y1 = slotRect.top  + slotRect.height / 2 - wrapRect.top;
+  const x2 = monRect.left  + monRect.width   / 2 - wrapRect.left;
+  const y2 = monRect.top   + monRect.height  / 2 - wrapRect.top;
+
+  const mode = plant.attackMode;
+  const dot  = document.createElement("div");
+  dot.className = "projectile-fx " + mode;
+  dot.style.setProperty("--x1", x1 + "px");
+  dot.style.setProperty("--y1", y1 + "px");
+  dot.style.setProperty("--x2", x2 + "px");
+  dot.style.setProperty("--y2", y2 + "px");
+  dot.style.setProperty("--dur", "340ms");
+  dot.style.left = x1 + "px";
+  dot.style.top  = y1 + "px";
+  elBattleArea.appendChild(dot);
+  dot.addEventListener("animationend", function() { dot.remove(); }, { once: true });
+
+  if (mode === "area") {
+    const burst = document.createElement("div");
+    burst.className = "area-burst";
+    burst.style.left = x2 + "px";
+    burst.style.top  = y2 + "px";
+    burst.style.setProperty("--dur", "420ms");
+    elBattleArea.appendChild(burst);
+    burst.addEventListener("animationend", function() { burst.remove(); }, { once: true });
+  }
+}
+
+// ─────────────────── Night End / Game Over ────────────
+function endNight() {
+  if (gs.animId) { cancelAnimationFrame(gs.animId); gs.animId = null; }
+  elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
+  gs.monsters = [];
+  addLog("🎉 第 " + gs.round + " 回合胜利！当前分数：" + gs.score, "end");
+  gs.round += 1;
+  setTimeout(startDay, 2200);
+}
+
+function endGame() {
+  if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
+  if (gs.dayHandle)  { clearInterval(gs.dayHandle);       gs.dayHandle  = null; }
+  if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
+  gs.phase = "gameover";
+  updateHUD();
+  addLog("💀 游戏结束！最终分数：" + gs.score + "，坚持了 " + gs.round + " 回合", "end");
+}
+
+// ─────────────────── Start / Reset ───────────────────
+function fullReset() {
+  if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
+  if (gs.dayHandle)  { clearInterval(gs.dayHandle);       gs.dayHandle  = null; }
+  if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
+  gs.phase       = "idle";
+  gs.round       = 0;
+  gs.score       = 0;
+  gs.lives       = 5;
+  gs.dayLeft     = DAY_DURATION;
+  gs.spawned     = [];
+  gs.backpack    = [];
+  gs.selectedId  = null;
+  gs.grid        = Array(SLOTS).fill(null);
+  gs.monsters    = [];
+  gs.mQueue      = [];
+  elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
+  elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
+  if (elCollectHint) elCollectHint.style.display = "";
+  initGrid();
+  renderBackpack();
+  updateHUD();
+}
+
+document.getElementById("btnStart").addEventListener("click", function() {
+  if (gs.phase !== "idle" && gs.phase !== "gameover") return;
+  fullReset();
+  gs.round = 1;
+  startDay();
+});
+
+document.getElementById("btnReset").addEventListener("click", function() {
+  fullReset();
+  elLog.innerHTML = "";
+  addLog("游戏已重置。点击「开始游戏」进入第一回合！", "round");
+});
+
+document.getElementById("btnClearLog").addEventListener("click", function() {
+  elLog.innerHTML = "";
+});
+
+// ─────────────────── Save / Load ─────────────────────
+document.getElementById("btnSaveConfig").addEventListener("click", function() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary }));
+  addLog("植物库配置已保存到本地浏览器。", "end");
+});
+
+document.getElementById("btnLoadConfig").addEventListener("click", function() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) { addLog("未找到已保存配置。", "dodge"); return; }
   try {
-    const payload = JSON.parse(text);
-    if (Array.isArray(payload.plantLibrary) && payload.plantLibrary.length >= 3) {
-      plantLibrary.splice(0, plantLibrary.length, ...payload.plantLibrary);
+    const data = JSON.parse(raw);
+    if (Array.isArray(data.plantLibrary) && data.plantLibrary.length >= 1) {
+      plantLibrary.splice(0, plantLibrary.length);
+      data.plantLibrary.forEach(function(p) { plantLibrary.push(p); });
       plantLibrary.forEach(sanitizePlant);
+      renderLibrary();
+      renderBackpack();
+      addLog("配置加载成功！", "end");
     }
-    if (Array.isArray(payload.teamCompositionA) && payload.teamCompositionA.length === 3) {
-      teamCompositionA.splice(0, 3, ...payload.teamCompositionA);
-    }
-    if (Array.isArray(payload.teamCompositionB) && payload.teamCompositionB.length === 3) {
-      teamCompositionB.splice(0, 3, ...payload.teamCompositionB);
-    }
-    if (payload.effectSettings) {
-      Object.assign(effectSettings, payload.effectSettings);
-    }
-    resetState();
-    appendLog("本地配置加载成功。", "end");
-  } catch {
-    appendLog("本地配置解析失败。", "dodge");
-  }
+  } catch(e) { addLog("配置解析失败。", "dodge"); }
+});
+
+// ─────────────────── Plant Library Editor ────────────
+elLibraryToggle.addEventListener("click", function() {
+  const open = elLibraryBody.style.display === "none";
+  elLibraryBody.style.display = open ? "" : "none";
+});
+
+const libFields = [
+  { key: "name",       label: "名字",     type: "text"   },
+  { key: "image",      label: "图片URL",  type: "text"   },
+  { key: "role",       label: "定位",     type: "select" },
+  { key: "attackMode", label: "攻击方式", type: "select" },
+  { key: "hp",         label: "HP",       type: "number", step: "1"    },
+  { key: "atk",        label: "ATK",      type: "number", step: "1"    },
+  { key: "df",         label: "DEF",      type: "number", step: "1"    },
+  { key: "crit",       label: "暴击率",   type: "number", step: "0.01" },
+  { key: "critDmg",    label: "暴伤倍率", type: "number", step: "0.1"  },
+  { key: "dodge",      label: "闪避率",   type: "number", step: "0.01" },
+  { key: "skillName",  label: "技能名称", type: "text"   },
+  { key: "skillType",  label: "技能类型", type: "select" },
+  { key: "skillCoef",  label: "技能系数", type: "number", step: "0.1"  },
+  { key: "skillCd",    label: "技能冷却", type: "number", step: "1"    },
+];
+
+const selectOptions = {
+  role:       [["defender","防御"],["attacker","输出"],["support","辅助"]],
+  attackMode: [["melee","近战突进"],["ranged","远程弹道"],["area","范围爆发"]],
+  skillType:  [["normal","普通伤害"],["poison","中毒DoT"],["shield","自身护盾"],["slow","减速怪物"]],
+};
+
+function renderLibrary() {
+  elLibraryList.innerHTML = plantLibrary.map(function(p, i) {
+    const img = escHtml(getImg(p));
+    const fb  = escHtml(buildSvgFallback(p.name, p.role));
+    const rows = libFields.map(function(f) {
+      const fid = "lib-" + i + "-" + f.key;
+      if (f.type === "select") {
+        const pool = selectOptions[f.key] || [];
+        const opts = pool.map(function(kv) {
+          return '<option value="' + kv[0] + '"' + (p[f.key] === kv[0] ? " selected" : "") + ">" + kv[1] + "</option>";
+        }).join("");
+        return "<label>" + escHtml(f.label) + '<select id="' + fid + '">' + opts + "</select></label>";
+      }
+      return "<label>" + escHtml(f.label) +
+        '<input id="' + fid + '" type="' + f.type + '" step="' + (f.step || "1") + '" value="' +
+        escHtml(String(p[f.key] !== undefined ? p[f.key] : "")) + '"></label>';
+    }).join("");
+
+    return '<div class="library-item" data-idx="' + i + '">' +
+      '<div class="library-item-summary">' +
+        '<img class="lib-thumb" src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
+        '<span class="lib-name">'  + escHtml(p.name)              + "</span>" +
+        '<span class="lib-tag">'   + roleLabel(p.role)             + "</span>" +
+        '<span class="lib-stat">HP '  + p.hp   + "</span>" +
+        '<span class="lib-stat">ATK ' + p.atk  + "</span>" +
+        '<span class="lib-stat">DEF ' + p.df   + "</span>" +
+        '<span class="lib-stat">'  + modeLabel(p.attackMode)       + "</span>" +
+        '<span class="lib-stat">技能:' + escHtml(p.skillName) + "(" + p.skillType + ")" + "</span>" +
+        '<div class="lib-actions">' +
+          '<button class="ghost btn-lib-edit" data-idx="'   + i + '">编辑</button>' +
+          '<button class="btn-danger btn-lib-del" data-idx="' + i + '">删除</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="library-item-form" id="lib-form-' + i + '" style="display:none">' +
+        rows +
+        '<div class="lib-form-actions">' +
+          '<button class="btn-lib-save" data-idx="'    + i + '">保存</button>' +
+          '<button class="ghost btn-lib-cancel" data-idx="' + i + '">取消</button>' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  }).join("");
 }
 
-function simulateBattleFast(configA, configB, maxRound = 80) {
-  const teamA = configA.map(clonePlant);
-  const teamB = configB.map(clonePlant);
+elLibraryList.addEventListener("click", function(evt) {
+  const btn = evt.target;
+  if (!(btn instanceof HTMLElement)) return;
 
-  for (let round = 1; round <= maxRound; round++) {
-    for (let i = 0; i < teamA.length; i++) {
-      attack(teamA[i], "A", i + 1, teamB, "B", false);
-      if (!teamAlive(teamB)) return "A";
-    }
-    for (let i = 0; i < teamB.length; i++) {
-      attack(teamB[i], "B", i + 1, teamA, "A", false);
-      if (!teamAlive(teamA)) return "B";
-    }
-  }
-  return "draw";
-}
-
-function runBatchSimulation() {
-  readSettingInputs();
-  applyCompositionFromPicker("A");
-  applyCompositionFromPicker("B");
-  templateA = buildTemplateFromComposition(teamCompositionA);
-  templateB = buildTemplateFromComposition(teamCompositionB);
-
-  const n = Math.max(10, Math.floor(toNumber(el.simTimes.value, 200)));
-  el.simTimes.value = String(n);
-
-  let winA = 0;
-  let winB = 0;
-  let draw = 0;
-  for (let i = 0; i < n; i++) {
-    const r = simulateBattleFast(templateA, templateB, 80);
-    if (r === "A") winA += 1;
-    else if (r === "B") winB += 1;
-    else draw += 1;
-  }
-
-  const text = `样本${n}场：我方胜率 ${(winA / n * 100).toFixed(1)}% | 敌方胜率 ${(winB / n * 100).toFixed(1)}% | 平局 ${(draw / n * 100).toFixed(1)}%`;
-  el.simResult.textContent = text;
-  appendLog(`批量模拟完成。${text}`, "round");
-}
-
-function resetHitMarks() {
-  state.teamA.forEach((p) => {
-    p.justHit = false;
-  });
-  state.teamB.forEach((p) => {
-    p.justHit = false;
-  });
-}
-
-function render() {
-  el.teamA.className = "team-row team-a";
-  el.teamB.className = "team-row team-b";
-  el.teamA.innerHTML = state.teamA.map((p, i) => plantCard(p, i + 1, "A")).join("");
-  el.teamB.innerHTML = state.teamB.map((p, i) => plantCard(p, i + 1, "B")).join("");
-
-  el.roundNum.textContent = String(state.round);
-  el.battleState.textContent = state.battleState;
-  el.aliveInfo.textContent = `${aliveCount(state.teamA)} vs ${aliveCount(state.teamB)}`;
-
-  drawLineChart(el.hpChart, state.hpA, state.hpB, "#2b8a3e", "#c92a2a", "我方总HP", "敌方总HP");
-  drawBarChart(el.dmgChart, state.dmgA, state.dmgB);
-
-  resetHitMarks();
-}
-
-function resetState() {
-  stopAuto();
-  el.fxLayer.innerHTML = "";
-
-  templateA = buildTemplateFromComposition(teamCompositionA);
-  templateB = buildTemplateFromComposition(teamCompositionB);
-  state.teamA = templateA.map(clonePlant);
-  state.teamB = templateB.map(clonePlant);
-  state.running = false;
-  state.round = 0;
-  state.hpA = [teamTotalHp(state.teamA)];
-  state.hpB = [teamTotalHp(state.teamB)];
-  state.dmgA = [];
-  state.dmgB = [];
-  state.battleState = "待命";
-
-  el.log.innerHTML = "";
-  appendLog("已重置。当前战场站位为 321 vs 123，防御型植物仅在1号位时可拦截全队伤害。", "round");
-
-  syncSettingInputs();
-  renderSlotPicker("A");
-  renderSlotPicker("B");
-  renderLibrary();
-  render();
-}
-
-el.start.addEventListener("click", startAuto);
-el.step.addEventListener("click", () => {
-  if (!state.running) stepRound();
-});
-el.reset.addEventListener("click", resetState);
-el.clearLog.addEventListener("click", () => {
-  el.log.innerHTML = "";
-  appendLog("日志已清空。", "round");
-});
-el.speed.addEventListener("change", () => {
-  if (state.running) {
-    stopAuto();
-    startAuto();
-  }
-});
-
-el.applyConfig.addEventListener("click", () => {
-  if (state.running) {
-    appendLog("请先暂停，再应用配置。", "dodge");
-    return;
-  }
-  readSettingInputs();
-  applyCompositionFromPicker("A");
-  applyCompositionFromPicker("B");
-  resetState();
-  appendLog("新配置已应用，已重置战场。", "end");
-});
-
-el.saveConfig.addEventListener("click", () => {
-  if (state.running) {
-    appendLog("请先暂停，再保存配置。", "dodge");
-    return;
-  }
-  applyCompositionFromPicker("A");
-  applyCompositionFromPicker("B");
-  saveConfig();
-});
-
-el.loadConfig.addEventListener("click", () => {
-  if (state.running) {
-    appendLog("请先暂停，再加载配置。", "dodge");
-    return;
-  }
-  loadConfig();
-});
-
-el.simulateBatch.addEventListener("click", () => {
-  if (state.running) {
-    appendLog("请先暂停，再做批量模拟。", "dodge");
-    return;
-  }
-  runBatchSimulation();
-});
-
-document.addEventListener("dragstart", (evt) => {
-  const card = evt.target;
-  if (!(card instanceof HTMLElement) || !card.classList.contains("card")) return;
-  if (!canSwap()) {
-    evt.preventDefault();
-    return;
-  }
-
-  dragState.team = card.dataset.team || null;
-  dragState.slot = Number(card.dataset.slot || "0") || null;
-  card.classList.add("dragging");
-});
-
-document.addEventListener("dragend", (evt) => {
-  const card = evt.target;
-  if (card instanceof HTMLElement) {
-    card.classList.remove("dragging");
-    card.classList.remove("drop-target");
-  }
-  dragState.team = null;
-  dragState.slot = null;
-});
-
-document.addEventListener("dragover", (evt) => {
-  const card = evt.target instanceof HTMLElement ? evt.target.closest(".card") : null;
-  if (!(card instanceof HTMLElement)) return;
-  if (!canSwap()) return;
-  if (!dragState.team || !dragState.slot) return;
-  if (card.dataset.team !== dragState.team) return;
-
-  evt.preventDefault();
-  card.classList.add("drop-target");
-});
-
-document.addEventListener("dragleave", (evt) => {
-  const card = evt.target instanceof HTMLElement ? evt.target.closest(".card") : null;
-  if (card instanceof HTMLElement) {
-    card.classList.remove("drop-target");
-  }
-});
-
-document.addEventListener("drop", (evt) => {
-  const card = evt.target instanceof HTMLElement ? evt.target.closest(".card") : null;
-  if (!(card instanceof HTMLElement)) return;
-  if (!canSwap()) return;
-  if (!dragState.team || !dragState.slot) return;
-  if (card.dataset.team !== dragState.team) return;
-
-  evt.preventDefault();
-  const toSlot = Number(card.dataset.slot || "0");
-  const fromSlot = dragState.slot;
-  card.classList.remove("drop-target");
-  if (!toSlot || toSlot === fromSlot) return;
-
-  const arr = dragState.team === "A" ? state.teamA : state.teamB;
-  const a = fromSlot - 1;
-  const b = toSlot - 1;
-  const tmp = arr[a];
-  arr[a] = arr[b];
-  arr[b] = tmp;
-
-  appendLog(`${dragState.team === "A" ? "我方" : "敌方"}拖拽换位：${fromSlot}号位 <-> ${toSlot}号位`, "round");
-  render();
-});
-
-// ---- 植物库操作 ----
-el.btnAddPlant.addEventListener("click", () => {
-  const newPlant = {
-    name: "新植物", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40,
-    crit: 0.15, critDmg: 1.5, dodge: 0.0,
-    skillName: "技能", skillCoef: 1.5, skillCd: 2, skillType: "normal"
-  };
-  plantLibrary.push(newPlant);
-  renderLibrary();
-  renderSlotPicker("A");
-  renderSlotPicker("B");
-  const newIdx = plantLibrary.length - 1;
-  const form = document.getElementById(`lib-form-${newIdx}`);
-  if (form) form.style.display = "grid";
-  appendLog("已添加新植物到植物库，请编辑其属性。", "end");
-});
-
-el.plantLibraryList.addEventListener("click", (evt) => {
-  const target = evt.target;
-  if (!(target instanceof HTMLElement)) return;
-
-  if (target.classList.contains("btn-lib-edit")) {
-    const idx = parseInt(target.dataset.idx, 10);
-    const form = document.getElementById(`lib-form-${idx}`);
+  if (btn.classList.contains("btn-lib-edit")) {
+    const form = document.getElementById("lib-form-" + btn.dataset.idx);
     if (form) form.style.display = form.style.display === "none" ? "grid" : "none";
     return;
   }
-
-  if (target.classList.contains("btn-lib-cancel")) {
-    const idx = parseInt(target.dataset.idx, 10);
-    const form = document.getElementById(`lib-form-${idx}`);
+  if (btn.classList.contains("btn-lib-cancel")) {
+    const form = document.getElementById("lib-form-" + btn.dataset.idx);
     if (form) form.style.display = "none";
     return;
   }
-
-  if (target.classList.contains("btn-lib-save")) {
-    const idx = parseInt(target.dataset.idx, 10);
-    const p = plantLibrary[idx];
-    for (const f of fields) {
-      const node = document.getElementById(`lib-${idx}-${f.key}`);
-      if (!node) continue;
-      p[f.key] = f.type === "number" ? toNumber(node.value, p[f.key]) : node.value;
-    }
-    sanitizePlant(p);
-
-    // Sync display/config fields into active battle state so changes appear immediately
-    const staticFields = ["name", "image", "role", "attackMode", "atk", "df", "crit", "critDmg", "dodge", "skillName", "skillCoef", "skillCd", "skillType"];
-    [[teamCompositionA, state.teamA], [teamCompositionB, state.teamB]].forEach(([comp, team]) => {
-      comp.forEach((libIdx, slot) => {
-        if (libIdx === idx && team[slot]) {
-          staticFields.forEach(key => { team[slot][key] = p[key]; });
-        }
-      });
+  if (btn.classList.contains("btn-lib-save")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    const p   = plantLibrary[idx];
+    libFields.forEach(function(f) {
+      const node = document.getElementById("lib-" + idx + "-" + f.key);
+      if (!node) return;
+      p[f.key] = f.type === "number" ? toNum(node.value, p[f.key]) : node.value;
     });
-
+    sanitizePlant(p);
+    // Sync changes into any live planted copies
+    for (let s = 0; s < SLOTS; s++) {
+      const live = gs.grid[s];
+      if (!live || live.plantIdx !== idx) continue;
+      ["name","image","role","attackMode","atk","df","crit","critDmg","dodge",
+       "skillName","skillCoef","skillCd","skillType"].forEach(function(k) { live[k] = p[k]; });
+    }
     renderLibrary();
-    renderSlotPicker("A");
-    renderSlotPicker("B");
-    render();
-    appendLog(`植物库已更新：${p.name}`, "end");
+    renderGrid();
+    renderBackpack();
+    addLog("植物库已更新：" + p.name, "end");
     return;
   }
-
-  if (target.classList.contains("btn-lib-del")) {
-    const idx = parseInt(target.dataset.idx, 10);
-    if (plantLibrary.length <= 3) {
-      appendLog("植物库至少需要保留 3 个植物。", "dodge");
-      return;
-    }
+  if (btn.classList.contains("btn-lib-del")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (plantLibrary.length <= 1) { addLog("至少需要保留 1 个植物。", "dodge"); return; }
     const name = plantLibrary[idx].name;
     plantLibrary.splice(idx, 1);
-    [teamCompositionA, teamCompositionB].forEach(comp => {
-      for (let i = 0; i < comp.length; i++) {
-        if (comp[i] >= plantLibrary.length) comp[i] = plantLibrary.length - 1;
-        else if (comp[i] > idx) comp[i] = comp[i] - 1;
-      }
-    });
+    for (let s = 0; s < SLOTS; s++) {
+      const live = gs.grid[s];
+      if (!live) continue;
+      if (live.plantIdx === idx)  gs.grid[s] = null;
+      else if (live.plantIdx > idx) live.plantIdx -= 1;
+    }
+    gs.backpack = gs.backpack
+      .filter(function(b) { return b.plantIdx !== idx; })
+      .map(function(b)    { return { id: b.id, plantIdx: b.plantIdx > idx ? b.plantIdx - 1 : b.plantIdx }; });
     renderLibrary();
-    renderSlotPicker("A");
-    renderSlotPicker("B");
-    appendLog(`已从植物库移除：${name}`, "end");
+    renderGrid();
+    renderBackpack();
+    addLog("已从植物库移除：" + name, "end");
     return;
   }
 });
 
-resetState();
+document.getElementById("btnAddPlant").addEventListener("click", function() {
+  const newP = {
+    name: "新植物", image: "", role: "attacker", attackMode: "ranged",
+    hp: 1000, atk: 150, df: 30, crit: 0.12, critDmg: 1.5, dodge: 0,
+    skillName: "技能", skillCoef: 1.5, skillCd: 2, skillType: "normal",
+  };
+  sanitizePlant(newP);
+  plantLibrary.push(newP);
+  renderLibrary();
+  const newIdx = plantLibrary.length - 1;
+  const form   = document.getElementById("lib-form-" + newIdx);
+  if (form) form.style.display = "grid";
+  // Open library panel if closed
+  if (elLibraryBody.style.display === "none") elLibraryBody.style.display = "";
+  addLog("新植物已添加，请填写属性后保存。", "end");
+});
+
+// ─────────────────── Boot ────────────────────────────
+renderLibrary();
+initGrid();
+renderBackpack();
+updateHUD();
+addLog("欢迎来到植物战队！点击「开始游戏」进入第一回合。", "round");
