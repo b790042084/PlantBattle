@@ -140,7 +140,20 @@ label {
   height: 280px;
   border-radius: 14px;
   border: 2px solid #88c0e8;
-  background: linear-gradient(180deg, #c9e8f8 0%, #ddf0ff 100%);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      #ffffff 0%,
+      #ffffff 20%,
+      #333333 20%,
+      #333333 40%,
+      #ffffff 40%,
+      #ffffff 60%,
+      #333333 60%,
+      #333333 80%,
+      #ffffff 80%,
+      #ffffff 100%
+    );
   overflow: hidden;
 }
 
@@ -163,9 +176,13 @@ label {
   left: 50%;
   transform: translateX(-50%);
   font-size: 12px;
-  color: #5a7a8a;
+  color: #fff;
+  background: rgba(0,0,0,0.6);
+  padding: 4px 12px;
+  border-radius: 12px;
   white-space: nowrap;
   pointer-events: none;
+  z-index: 1;
 }
 
 /* spawned plant bubbles */
@@ -212,6 +229,30 @@ label {
   filter: drop-shadow(0 2px 8px rgba(0,0,0,.3));
   transition: none;
   user-select: none;
+}
+
+/* Wave animation in collection zone */
+.wave {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 30px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 150, 255, 0.8) 0%,
+    rgba(0, 200, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+  border-radius: 50%;
+  box-shadow: 0 2px 12px rgba(0, 150, 255, 0.5);
+  z-index: 5;
+  pointer-events: none;
+  animation: waveShimmer 1s ease-in-out infinite;
+}
+
+@keyframes waveShimmer {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 /* ===== BATTLE WRAPPER (monster zone + planting zone) ===== */

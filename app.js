@@ -151,10 +151,15 @@ const gs = {
   player: {
     x: 50,  // percentage
     y: 50,  // percentage
+    row: 2, // which stripe row (0-4)
     size: 40, // px
     speed: 0.8, // percentage per frame at 60fps
+    isJumping: false,
+    jumpProgress: 0,
   },
   keys: {},
+  waves: [], // active waves in collection zone
+  waveSpawnTimer: 0,
 };
 
 // ─────────────────── Keyboard Controls ───────────────
@@ -163,6 +168,12 @@ document.addEventListener("keydown", function(e) {
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
     e.preventDefault();
     gs.keys[key] = true;
+  }
+  // Jump with spacebar
+  if (key === " " && gs.phase === "day" && !gs.player.isJumping) {
+    e.preventDefault();
+    gs.player.isJumping = true;
+    gs.player.jumpProgress = 0;
   }
 });
 
@@ -357,34 +368,111 @@ function createPlayer() {
 
 function updatePlayerPosition() {
   if (!elPlayer) return;
+
+  // Handle jump animation
+  let yOffset = 0;
+  if (gs.player.isJumping) {
+    gs.player.jumpProgress += 0.1;
+    if (gs.player.jumpProgress >= 1) {
+      gs.player.isJumping = false;
+      gs.player.jumpProgress = 0;
+      // Change row after jump
+      const dy = (gs.keys["arrowup"] || gs.keys["w"]) ? -1 : (gs.keys["arrowdown"] || gs.keys["s"]) ? 1 : 0;
+      gs.player.row = Math.max(0, Math.min(4, gs.player.row + dy));
+    } else {
+      // Jump arc
+      yOffset = -Math.sin(gs.player.jumpProgress * Math.PI) * 15;
+    }
+  }
+
+  // Position based on row (5 stripes, each 20% height)
+  const targetY = gs.player.row * 20 + 10;
+  gs.player.y = targetY;
+
   elPlayer.style.left = gs.player.x + "%";
   elPlayer.style.top = gs.player.y + "%";
+  elPlayer.style.transform = "translate(-50%, calc(-50% + " + yOffset + "px))";
 }
 
 function movePlayer() {
   if (gs.phase !== "day") return;
 
   let dx = 0;
-  let dy = 0;
 
-  // Check keys
-  if (gs.keys["arrowup"] || gs.keys["w"]) dy -= 1;
-  if (gs.keys["arrowdown"] || gs.keys["s"]) dy += 1;
+  // Only horizontal movement, vertical via jumping
   if (gs.keys["arrowleft"] || gs.keys["a"]) dx -= 1;
   if (gs.keys["arrowright"] || gs.keys["d"]) dx += 1;
 
-  // Normalize diagonal movement
-  if (dx !== 0 && dy !== 0) {
-    dx *= 0.707;
-    dy *= 0.707;
-  }
-
-  // Update position with boundaries
+  // Update horizontal position with boundaries
   gs.player.x = Math.max(5, Math.min(95, gs.player.x + dx * gs.player.speed));
-  gs.player.y = Math.max(5, Math.min(95, gs.player.y + dy * gs.player.speed));
 
   updatePlayerPosition();
   checkPlantCollisions();
+  checkWaveCollisions();
+}
+
+// Wave system
+function spawnWave() {
+  if (gs.phase !== "day") return;
+
+  const wave = {
+    id: uid(),
+    y: 0,
+    speed: 0.3 + Math.random() * 0.5, // varying speeds
+    el: null,
+  };
+
+  const el = document.createElement("div");
+  el.className = "wave";
+  el.dataset.id = wave.id;
+  elCollect.appendChild(el);
+  wave.el = el;
+
+  gs.waves.push(wave);
+}
+
+function updateWaves() {
+  if (gs.phase !== "day") return;
+
+  // Update wave positions
+  for (let i = gs.waves.length - 1; i >= 0; i--) {
+    const wave = gs.waves[i];
+    wave.y += wave.speed;
+
+    if (wave.el) {
+      wave.el.style.top = wave.y + "%";
+    }
+
+    // Remove waves that have gone off screen
+    if (wave.y > 100) {
+      if (wave.el) wave.el.remove();
+      gs.waves.splice(i, 1);
+    }
+  }
+}
+
+function checkWaveCollisions() {
+  if (gs.phase !== "day") return;
+
+  const playerRow = gs.player.row;
+  const isOnWhiteRow = playerRow % 2 === 0; // Even rows are white (0, 2, 4)
+
+  if (isOnWhiteRow) return; // Safe on white rows
+
+  const playerY = gs.player.y;
+
+  for (const wave of gs.waves) {
+    // Check if wave is at player's position (±5% tolerance)
+    if (Math.abs(wave.y - playerY) < 8) {
+      // Hit by wave on black row - reset to start
+      gs.player.x = 50;
+      gs.player.row = 2;
+      gs.player.y = 50;
+      updatePlayerPosition();
+      addLog("被海浪击中！回到起点", "dodge");
+      break;
+    }
+  }
 }
 
 function checkPlantCollisions() {
@@ -460,14 +548,20 @@ function collectPlant(id) {
 
 // ─────────────────── Day Phase ───────────────────────
 let playerMoveInterval = null;
+let waveUpdateInterval = null;
+let waveSpawnInterval = null;
 
 function startDay() {
   gs.phase   = "day";
   gs.phaseLeft = DAY_DURATION;
   gs.spawned = [];
+  gs.waves = [];
   gs.player.x = 50;
   gs.player.y = 50;
+  gs.player.row = 2;
+  gs.player.isJumping = false;
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
+  elCollect.querySelectorAll(".wave").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
 
   // Create player character
@@ -476,6 +570,13 @@ function startDay() {
   // Start player movement loop
   if (playerMoveInterval) clearInterval(playerMoveInterval);
   playerMoveInterval = setInterval(movePlayer, 16); // ~60fps
+
+  // Start wave system
+  if (waveUpdateInterval) clearInterval(waveUpdateInterval);
+  waveUpdateInterval = setInterval(updateWaves, 16); // ~60fps
+
+  if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+  waveSpawnInterval = setInterval(spawnWave, 5000); // Every 5 seconds
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
@@ -501,12 +602,22 @@ function endDay() {
     clearInterval(playerMoveInterval);
     playerMoveInterval = null;
   }
+  if (waveUpdateInterval) {
+    clearInterval(waveUpdateInterval);
+    waveUpdateInterval = null;
+  }
+  if (waveSpawnInterval) {
+    clearInterval(waveSpawnInterval);
+    waveSpawnInterval = null;
+  }
   if (elPlayer) {
     elPlayer.remove();
     elPlayer = null;
   }
   gs.spawned.forEach(function(s) { s.el.remove(); });
   gs.spawned     = [];
+  gs.waves.forEach(function(w) { if (w.el) w.el.remove(); });
+  gs.waves = [];
   gs.selectedId  = null;
   if (elCollectHint) elCollectHint.style.display = "none";
   addLog("白天结束！进入黄昏…", "round");
