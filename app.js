@@ -1058,9 +1058,21 @@ el.plantLibraryList.addEventListener("click", (evt) => {
       p[f.key] = f.type === "number" ? toNumber(node.value, p[f.key]) : node.value;
     }
     sanitizePlant(p);
+
+    // Sync display/config fields into active battle state so changes appear immediately
+    const staticFields = ["name", "image", "role", "attackMode", "atk", "df", "crit", "critDmg", "dodge", "skillName", "skillCoef", "skillCd", "skillType"];
+    [[teamCompositionA, state.teamA], [teamCompositionB, state.teamB]].forEach(([comp, team]) => {
+      comp.forEach((libIdx, slot) => {
+        if (libIdx === idx && team[slot]) {
+          staticFields.forEach(key => { team[slot][key] = p[key]; });
+        }
+      });
+    });
+
     renderLibrary();
     renderSlotPicker("A");
     renderSlotPicker("B");
+    render();
     appendLog(`植物库已更新：${p.name}`, "end");
     return;
   }
