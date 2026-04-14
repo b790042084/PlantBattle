@@ -107,6 +107,7 @@ label {
 .phase-chip.phase-idle   { background: #eff5e7; }
 
 .timer-chip { font-variant-numeric: tabular-nums; }
+.version-chip { font-size: 12px; opacity: 0.8; }
 
 /* ===== COLLECTION ZONE ===== */
 .collection-zone {

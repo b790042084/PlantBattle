@@ -6,6 +6,7 @@
 // =============================================================
 
 const STORAGE_KEY = "plant-battle-td-v1";
+const APP_VERSION = "v1.0.0";
 
 // ─────────────────── Plant Library ───────────────────
 const plantLibrary = [
@@ -105,6 +106,10 @@ const elCollectHint   = document.getElementById("collectionHint");
 const elLibraryList   = document.getElementById("plantLibraryList");
 const elLibraryBody   = document.getElementById("libraryBody");
 const elLibraryToggle = document.getElementById("libraryToggle");
+const elVersion       = document.getElementById("versionDisplay");
+
+// Show current version in the HUD
+if (elVersion) elVersion.textContent = APP_VERSION;
 
 // ─────────────────── Game State ──────────────────────
 const gs = {
