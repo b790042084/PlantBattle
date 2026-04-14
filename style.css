@@ -142,11 +142,21 @@ label {
   border: 2px solid #88c0e8;
   background:
     linear-gradient(180deg,
-      #ffffff 0%, #ffffff 20%,
-      #333333 20%, #333333 40%,
-      #ffffff 40%, #ffffff 60%,
-      #333333 60%, #333333 80%,
-      #ffffff 80%, #ffffff 100%
+      #ffffff 0%, #ffffff 6.67%,
+      #333333 6.67%, #333333 13.33%,
+      #ffffff 13.33%, #ffffff 20%,
+      #333333 20%, #333333 26.67%,
+      #ffffff 26.67%, #ffffff 33.33%,
+      #333333 33.33%, #333333 40%,
+      #ffffff 40%, #ffffff 46.67%,
+      #333333 46.67%, #333333 53.33%,
+      #ffffff 53.33%, #ffffff 60%,
+      #333333 60%, #333333 66.67%,
+      #ffffff 66.67%, #ffffff 73.33%,
+      #333333 73.33%, #333333 80%,
+      #ffffff 80%, #ffffff 86.67%,
+      #333333 86.67%, #333333 93.33%,
+      #ffffff 93.33%, #ffffff 100%
     );
   overflow: hidden;
 }

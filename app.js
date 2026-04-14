@@ -59,6 +59,15 @@ const POISON_DURATION_BONUS  = 2;     // extra ticks added on top of plant's ski
 const SLOW_DURATION_MS       = 2000;  // ms per (skillCd + 1) unit for slow duration
 const SHIELD_GAIN_MULTIPLIER = 0.85;  // shield gained = atk × skillCoef × this
 
+const COLLECTION_ROWS = 15;  // Number of rows in collection zone
+const STRIPE_HEIGHT = 100 / COLLECTION_ROWS;  // Height of each stripe (%)     
+
+// Helper function to determine if a Y position is in a black stripe
+function isBlackStripe(yPercent) {
+  const stripeIndex = Math.floor(yPercent / STRIPE_HEIGHT);
+  return stripeIndex % 2 === 1;  // Odd indices are black
+}
+
 // ─────────────────── Utility ─────────────────────────
 let _id = 0;
 const uid = () => ++_id;
@@ -150,8 +159,8 @@ const gs = {
   // Player character for collection
   player: {
     x: 50,  // percentage
-    y: 50,  // percentage
-    row: 2, // which stripe row (0-4)
+    y: 95,  // percentage (starting at bottom)
+    row: 14, // which stripe row (0-14) - starting at bottom
     size: 40, // px
     speed: 0.8, // percentage per frame at 60fps
     isJumping: false,
@@ -381,15 +390,15 @@ function updatePlayerPosition() {
       gs.player.jumpProgress = 0;
       // Change row after jump
       const dy = (gs.keys["arrowup"] || gs.keys["w"]) ? -1 : (gs.keys["arrowdown"] || gs.keys["s"]) ? 1 : 0;
-      gs.player.row = Math.max(0, Math.min(4, gs.player.row + dy));
+      gs.player.row = Math.max(0, Math.min(COLLECTION_ROWS - 1, gs.player.row + dy));
     } else {
       // Jump arc
       yOffset = -Math.sin(gs.player.jumpProgress * Math.PI) * 15;
     }
   }
 
-  // Position based on row (5 stripes, each 20% height)
-  const targetY = gs.player.row * 20 + 10;
+  // Position based on row (15 stripes, each 6.67% height)
+  const targetY = gs.player.row * STRIPE_HEIGHT + STRIPE_HEIGHT / 2;
   gs.player.y = targetY;
 
   elPlayer.style.left = gs.player.x + "%";
@@ -471,15 +480,19 @@ function checkWaveCollisions() {
   if (performance.now() < gs.waveHitCooldown) return;
 
   const playerY = gs.player.y;
+  
+  // Only take damage if in black stripe
+  if (!isBlackStripe(playerY)) return;
 
   for (const wave of gs.waves) {
     const distance = Math.abs(wave.y - playerY);
     // Check if wave is at player's position (±8% tolerance)
-    if (distance < 8) {
-      // Hit by wave - reset to start and grant 1.5s of immunity
+    const COLLISION_TOLERANCE = STRIPE_HEIGHT * 1.2;  // Adaptive collision tolerance
+    if (distance < COLLISION_TOLERANCE) {
+      // Hit by wave - reset to bottom and grant 1.5s of immunity
       gs.player.x = 50;
-      gs.player.row = 2;
-      gs.player.y = 50;
+      gs.player.row = 14;  // Reset to bottom
+      gs.player.y = 95;    // Bottom position
       gs.waveHitCooldown = performance.now() + 1500;
       updatePlayerPosition();
       addLog("被海浪击中！回到起点 (海浪Y:" + wave.y.toFixed(1) + "% 玩家Y:" + playerY.toFixed(1) + "%)", "dodge");
@@ -518,7 +531,12 @@ function spawnCollectionPlant() {
   const pDef     = plantLibrary[plantIdx];
   const id       = uid();
   const x        = 8  + Math.random() * 78;
-  const y        = 12 + Math.random() * 68;
+  
+  // Only spawn plants in black stripes
+  let y;
+  do {
+    y = Math.random() * 100;
+  } while (!isBlackStripe(y));
 
   const el = document.createElement("div");
   el.className   = "spawned-plant";
@@ -570,8 +588,8 @@ function startDay() {
   gs.spawned = [];
   gs.waves = [];
   gs.player.x = 50;
-  gs.player.y = 50;
-  gs.player.row = 2;
+  gs.player.y = 95;    // Start at bottom
+  gs.player.row = 14;  // Bottom row
   gs.player.isJumping = false;
   gs.waveHitCooldown = 0;
   addLog("[DEBUG] startDay 开始初始化", "round");
