@@ -1,0 +1,45 @@
+name: Update Version
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version string
+        id: version
+        run: |
+          # Use the most recent tag if one points to HEAD, otherwise tag+commit
+          TAG=$(git describe --tags --exact-match 2>/dev/null || true)
+          if [ -n "$TAG" ]; then
+            VERSION="$TAG"
+          else
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            VERSION="${LATEST_TAG}-${SHORT_SHA}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Inject version into app.js
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          sed -i "s|const APP_VERSION = \".*\";|const APP_VERSION = \"$VERSION\";|" app.js
+          echo "Set APP_VERSION to $VERSION"
+
+      - name: Commit updated version
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet app.js || \
+            git commit -am "chore: bump APP_VERSION to ${{ steps.version.outputs.version }} [skip ci]"
+          git push
