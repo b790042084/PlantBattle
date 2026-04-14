@@ -42,8 +42,7 @@ const LANES             = 5;
 const ROWS              = 2;
 const SLOTS             = LANES * ROWS;
 const DAY_DURATION      = 30;
-const PLACEMENT_DURATION = 15;
-const DUSK_DURATION     = 10;
+const DUSK_DURATION     = 15;
 const SPAWN_INTERVAL    = 5500;
 const MAX_SPAWNED       = 5;
 const COMBAT_TICK       = 900;
@@ -164,7 +163,7 @@ function updateBackground() {
   const body = document.body;
   body.classList.remove("bg-day", "bg-dusk", "bg-night");
 
-  if (gs.phase === "day" || gs.phase === "placement") {
+  if (gs.phase === "day") {
     body.classList.add("bg-day");
   } else if (gs.phase === "dusk") {
     body.classList.add("bg-dusk");
@@ -180,15 +179,14 @@ function updateHUD() {
   const labels = {
     idle:"等待开始",
     day:"白天 — 收集中",
-    placement:"摆放植物",
-    dusk:"黄昏 — 准备中",
+    dusk:"黄昏 — 摆放植物",
     night:"夜晚 — 刷怪中",
     gameover:"游戏结束"
   };
   elPhaseChip.textContent = labels[gs.phase] || gs.phase;
   elPhaseChip.className   = "chip phase-chip phase-" + gs.phase;
 
-  const showTimer = gs.phase === "day" || gs.phase === "placement" || gs.phase === "dusk";
+  const showTimer = gs.phase === "day" || gs.phase === "dusk";
   elTimerChip.style.display = showTimer ? "" : "none";
   if (showTimer) elDayTimer.textContent = gs.phaseLeft;
 
@@ -214,7 +212,7 @@ function renderGrid() {
     const el    = elPlantingGrid.children[i];
     if (!el) continue;
     const plant = gs.grid[i];
-    const canHL = gs.selectedId !== null && !plant && gs.phase === "placement";
+    const canHL = gs.selectedId !== null && !plant && gs.phase === "dusk";
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
@@ -252,7 +250,7 @@ function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
-    if (gs.phase === "placement") {
+    if (gs.phase === "dusk") {
       gs.grid[idx] = null;
       gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx });
       addLog(plant.name + " 已取回到背包", "dodge");
@@ -261,7 +259,7 @@ function onSlotClick(e) {
     }
     return;
   }
-  if (gs.phase !== "placement" || !gs.selectedId) return;
+  if (gs.phase !== "dusk" || !gs.selectedId) return;
 
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
   if (bpIdx === -1) { gs.selectedId = null; renderBackpack(); return; }
@@ -405,33 +403,7 @@ function endDay() {
   gs.spawned     = [];
   gs.selectedId  = null;
   if (elCollectHint) elCollectHint.style.display = "none";
-  addLog("白天结束！进入摆放植物阶段…", "round");
-  renderBackpack();
-  renderGrid();
-  setTimeout(startPlacement, 2000);
-}
-
-// ─────────────────── Placement Phase ─────────────────
-function startPlacement() {
-  gs.phase = "placement";
-  gs.phaseLeft = PLACEMENT_DURATION;
-  updateHUD();
-  addLog("════ 摆放植物阶段！" + PLACEMENT_DURATION + " 秒布置防线 ════", "round");
-
-  gs.phaseHandle = setInterval(function() {
-    gs.phaseLeft -= 1;
-    updateHUD();
-    if (gs.phaseLeft <= 0) {
-      clearInterval(gs.phaseHandle);
-      gs.phaseHandle = null;
-      endPlacement();
-    }
-  }, 1000);
-}
-
-function endPlacement() {
-  gs.selectedId = null;
-  addLog("摆放阶段结束！进入黄昏…", "round");
+  addLog("白天结束！进入黄昏…", "round");
   renderBackpack();
   renderGrid();
   setTimeout(startDusk, 2000);
@@ -442,7 +414,7 @@ function startDusk() {
   gs.phase = "dusk";
   gs.phaseLeft = DUSK_DURATION;
   updateHUD();
-  addLog("════ 黄昏时分！" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
+  addLog("════ 黄昏时分！摆放植物，" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
 
   gs.phaseHandle = setInterval(function() {
     gs.phaseLeft -= 1;
@@ -456,6 +428,9 @@ function startDusk() {
 }
 
 function endDusk() {
+  gs.selectedId = null;
+  renderBackpack();
+  renderGrid();
   addLog("黄昏结束！夜晚开始…", "round");
   setTimeout(startNight, 2000);
 }
