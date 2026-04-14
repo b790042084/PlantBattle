@@ -7,6 +7,11 @@
   --line-2: #c92a2a;
   --accent: #ef8a17;
   --muted: #6b7a78;
+
+  /* Zone colors */
+  --collection-bg: #cce8fa;
+  --monster-bg: #1a1a2e;
+  --planting-bg: #3d6b4a;
 }
 
 * {
