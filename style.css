@@ -18,6 +18,28 @@ body {
   background: radial-gradient(1200px 700px at 10% -10%, #fff4d6 10%, transparent 60%),
     radial-gradient(900px 500px at 100% 0%, #cae6c7 0%, transparent 65%),
     linear-gradient(135deg, var(--bg-1), var(--bg-2));
+  transition: background 2s ease-in-out;
+}
+
+/* Day background (bright, sunny) */
+body.bg-day {
+  background: radial-gradient(1200px 700px at 10% -10%, #fff4d6 10%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #cae6c7 0%, transparent 65%),
+    linear-gradient(135deg, #f5efe2, #d8e6c8);
+}
+
+/* Dusk background (orange/purple sunset) */
+body.bg-dusk {
+  background: radial-gradient(1200px 700px at 10% -10%, #ffb366 10%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #d4a5d4 0%, transparent 65%),
+    linear-gradient(135deg, #ff9a5a, #8e5fad);
+}
+
+/* Night background (dark, starry) */
+body.bg-night {
+  background: radial-gradient(1200px 700px at 10% -10%, #1a1a3e 10%, transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, #0d0d1a 0%, transparent 65%),
+    linear-gradient(135deg, #0d0d1a, #1a1a3e);
 }
 
 .bg-grid {
@@ -101,10 +123,12 @@ label {
 }
 
 .phase-chip { font-weight: 700; }
-.phase-chip.phase-day    { background: #fff3b0; border-color: #f0c040; color: #7a4b00; }
-.phase-chip.phase-night  { background: #1e1e3a; border-color: #4a4a8a; color: #ccd; }
-.phase-chip.phase-gameover { background: #fde8e8; border-color: #e57373; color: #8b0000; }
-.phase-chip.phase-idle   { background: #eff5e7; }
+.phase-chip.phase-day       { background: #fff3b0; border-color: #f0c040; color: #7a4b00; }
+.phase-chip.phase-placement { background: #d4f1d4; border-color: #8bc34a; color: #2e5c00; }
+.phase-chip.phase-dusk      { background: #ffd4a3; border-color: #ff8c42; color: #7a3500; }
+.phase-chip.phase-night     { background: #1e1e3a; border-color: #4a4a8a; color: #ccd; }
+.phase-chip.phase-gameover  { background: #fde8e8; border-color: #e57373; color: #8b0000; }
+.phase-chip.phase-idle      { background: #eff5e7; }
 
 .timer-chip { font-variant-numeric: tabular-nums; }
 .version-chip { font-size: 12px; opacity: 0.8; }

@@ -38,17 +38,19 @@ function sanitizeMonster(m) {
 monsterTypes.forEach(sanitizeMonster);
 
 // ─────────────────── Constants ───────────────────────
-const LANES          = 5;
-const ROWS           = 2;
-const SLOTS          = LANES * ROWS;
-const DAY_DURATION   = 30;
-const SPAWN_INTERVAL = 5500;
-const MAX_SPAWNED    = 5;
-const COMBAT_TICK    = 900;
-const POISON_TICK    = 1200;
-const MONSTER_ZONE_H = 130;
-const PLANTING_ROW_H = 130;
-const BATTLE_H       = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
+const LANES             = 5;
+const ROWS              = 2;
+const SLOTS             = LANES * ROWS;
+const DAY_DURATION      = 30;
+const PLACEMENT_DURATION = 15;
+const DUSK_DURATION     = 10;
+const SPAWN_INTERVAL    = 5500;
+const MAX_SPAWNED       = 5;
+const COMBAT_TICK       = 900;
+const POISON_TICK       = 1200;
+const MONSTER_ZONE_H    = 130;
+const PLANTING_ROW_H    = 130;
+const BATTLE_H          = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
 const Y_ROW                  = [1.0, 2.0];
 const Y_BASE                 = 3.0;
 const ROUND_SCALE_FACTOR     = 0.15;  // HP/ATK difficulty increase per round
@@ -128,8 +130,8 @@ const gs = {
   round:       0,
   score:       0,
   lives:       5,
-  dayLeft:     DAY_DURATION,
-  dayHandle:   null,
+  phaseLeft:   0,
+  phaseHandle: null,
   spawnHandle: null,
 
   spawned:     [],
@@ -158,15 +160,40 @@ function addLog(text, type) {
 }
 
 // ─────────────────── HUD ─────────────────────────────
+function updateBackground() {
+  const body = document.body;
+  body.classList.remove("bg-day", "bg-dusk", "bg-night");
+
+  if (gs.phase === "day" || gs.phase === "placement") {
+    body.classList.add("bg-day");
+  } else if (gs.phase === "dusk") {
+    body.classList.add("bg-dusk");
+  } else if (gs.phase === "night") {
+    body.classList.add("bg-night");
+  }
+}
+
 function updateHUD() {
   elRoundNum.textContent = gs.round;
   if (elLives) elLives.textContent = gs.lives;
   if (elScore) elScore.textContent = gs.score;
-  const labels = { idle:"等待开始", day:"白天 — 收集中", night:"夜晚 — 刷怪中", gameover:"游戏结束" };
+  const labels = {
+    idle:"等待开始",
+    day:"白天 — 收集中",
+    placement:"摆放植物",
+    dusk:"黄昏 — 准备中",
+    night:"夜晚 — 刷怪中",
+    gameover:"游戏结束"
+  };
   elPhaseChip.textContent = labels[gs.phase] || gs.phase;
   elPhaseChip.className   = "chip phase-chip phase-" + gs.phase;
-  elTimerChip.style.display = gs.phase === "day" ? "" : "none";
-  if (gs.phase === "day") elDayTimer.textContent = gs.dayLeft;
+
+  const showTimer = gs.phase === "day" || gs.phase === "placement" || gs.phase === "dusk";
+  elTimerChip.style.display = showTimer ? "" : "none";
+  if (showTimer) elDayTimer.textContent = gs.phaseLeft;
+
+  // Update body background based on phase
+  updateBackground();
 }
 
 // ─────────────────── Grid ────────────────────────────
@@ -187,7 +214,7 @@ function renderGrid() {
     const el    = elPlantingGrid.children[i];
     if (!el) continue;
     const plant = gs.grid[i];
-    const canHL = gs.selectedId !== null && !plant && gs.phase === "day";
+    const canHL = gs.selectedId !== null && !plant && gs.phase === "placement";
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
@@ -225,7 +252,7 @@ function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
-    if (gs.phase === "day") {
+    if (gs.phase === "placement") {
       gs.grid[idx] = null;
       gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx });
       addLog(plant.name + " 已取回到背包", "dodge");
@@ -234,7 +261,7 @@ function onSlotClick(e) {
     }
     return;
   }
-  if (gs.phase !== "day" || !gs.selectedId) return;
+  if (gs.phase !== "placement" || !gs.selectedId) return;
 
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
   if (bpIdx === -1) { gs.selectedId = null; renderBackpack(); return; }
@@ -349,7 +376,7 @@ function collectPlant(id) {
 // ─────────────────── Day Phase ───────────────────────
 function startDay() {
   gs.phase   = "day";
-  gs.dayLeft = DAY_DURATION;
+  gs.phaseLeft = DAY_DURATION;
   gs.spawned = [];
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
@@ -357,12 +384,12 @@ function startDay() {
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
 
-  gs.dayHandle = setInterval(function() {
-    gs.dayLeft -= 1;
+  gs.phaseHandle = setInterval(function() {
+    gs.phaseLeft -= 1;
     updateHUD();
-    if (gs.dayLeft <= 0) {
-      clearInterval(gs.dayHandle);
-      gs.dayHandle = null;
+    if (gs.phaseLeft <= 0) {
+      clearInterval(gs.phaseHandle);
+      gs.phaseHandle = null;
       endDay();
     }
   }, 1000);
@@ -378,9 +405,58 @@ function endDay() {
   gs.spawned     = [];
   gs.selectedId  = null;
   if (elCollectHint) elCollectHint.style.display = "none";
-  addLog("白天结束！2 秒后进入夜晚…", "round");
+  addLog("白天结束！进入摆放植物阶段…", "round");
   renderBackpack();
   renderGrid();
+  setTimeout(startPlacement, 2000);
+}
+
+// ─────────────────── Placement Phase ─────────────────
+function startPlacement() {
+  gs.phase = "placement";
+  gs.phaseLeft = PLACEMENT_DURATION;
+  updateHUD();
+  addLog("════ 摆放植物阶段！" + PLACEMENT_DURATION + " 秒布置防线 ════", "round");
+
+  gs.phaseHandle = setInterval(function() {
+    gs.phaseLeft -= 1;
+    updateHUD();
+    if (gs.phaseLeft <= 0) {
+      clearInterval(gs.phaseHandle);
+      gs.phaseHandle = null;
+      endPlacement();
+    }
+  }, 1000);
+}
+
+function endPlacement() {
+  gs.selectedId = null;
+  addLog("摆放阶段结束！进入黄昏…", "round");
+  renderBackpack();
+  renderGrid();
+  setTimeout(startDusk, 2000);
+}
+
+// ─────────────────── Dusk Phase ──────────────────────
+function startDusk() {
+  gs.phase = "dusk";
+  gs.phaseLeft = DUSK_DURATION;
+  updateHUD();
+  addLog("════ 黄昏时分！" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
+
+  gs.phaseHandle = setInterval(function() {
+    gs.phaseLeft -= 1;
+    updateHUD();
+    if (gs.phaseLeft <= 0) {
+      clearInterval(gs.phaseHandle);
+      gs.phaseHandle = null;
+      endDusk();
+    }
+  }, 1000);
+}
+
+function endDusk() {
+  addLog("黄昏结束！夜晚开始…", "round");
   setTimeout(startNight, 2000);
 }
 
@@ -744,7 +820,7 @@ function endNight() {
 
 function endGame() {
   if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
-  if (gs.dayHandle)  { clearInterval(gs.dayHandle);       gs.dayHandle  = null; }
+  if (gs.phaseHandle)  { clearInterval(gs.phaseHandle);       gs.phaseHandle  = null; }
   if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
   gs.phase = "gameover";
   updateHUD();
@@ -754,13 +830,13 @@ function endGame() {
 // ─────────────────── Start / Reset ───────────────────
 function fullReset() {
   if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
-  if (gs.dayHandle)  { clearInterval(gs.dayHandle);       gs.dayHandle  = null; }
+  if (gs.phaseHandle)  { clearInterval(gs.phaseHandle);       gs.phaseHandle  = null; }
   if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
   gs.phase       = "idle";
   gs.round       = 0;
   gs.score       = 0;
   gs.lives       = 5;
-  gs.dayLeft     = DAY_DURATION;
+  gs.phaseLeft   = 0;
   gs.spawned     = [];
   gs.backpack    = [];
   gs.selectedId  = null;
