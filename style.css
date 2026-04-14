@@ -544,6 +544,12 @@ label {
 }
 .lib-form-actions { display: flex; gap: 8px; align-items: center; grid-column: 1 / -1; }
 
+/* ===== MONSTER LIBRARY ===== */
+.monster-library-panel { border-color: #d8c0b8; }
+.monster-item { background: #faf5f0; border-color: #e6d0c0; }
+.monster-item .library-item-form { border-top-color: #e6d0c0; }
+.mon-emoji { font-size: 28px; line-height: 1; }
+
 /* ===== LOG PANEL ===== */
 .panel {
   background: var(--card);

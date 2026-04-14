@@ -26,6 +26,17 @@ const monsterTypes = [
   { name: "巨型僵尸", emoji: "👾", hp: 1100, atk:  80, speed: 0.13, attackInterval: 2500, reward: 40 },
 ];
 
+function sanitizeMonster(m) {
+  m.name           = String(m.name  || "怪物").trim() || "怪物";
+  m.emoji          = String(m.emoji || "🧟").trim()  || "🧟";
+  m.hp             = Math.max(1,   Math.floor(toNum(m.hp,   300)));
+  m.atk            = Math.max(1,   Math.floor(toNum(m.atk,   35)));
+  m.speed          = Math.max(0.01,            toNum(m.speed,  0.27));
+  m.attackInterval = Math.max(100, Math.floor(toNum(m.attackInterval, 1600)));
+  m.reward         = Math.max(0,   Math.floor(toNum(m.reward,  10)));
+}
+monsterTypes.forEach(sanitizeMonster);
+
 // ─────────────────── Constants ───────────────────────
 const LANES          = 5;
 const ROWS           = 2;
@@ -783,8 +794,8 @@ document.getElementById("btnClearLog").addEventListener("click", function() {
 
 // ─────────────────── Save / Load ─────────────────────
 document.getElementById("btnSaveConfig").addEventListener("click", function() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary }));
-  addLog("植物库配置已保存到本地浏览器。", "end");
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ plantLibrary: plantLibrary, monsterTypes: monsterTypes }));
+  addLog("植物库 & 怪物库配置已保存到本地浏览器。", "end");
 });
 
 document.getElementById("btnLoadConfig").addEventListener("click", function() {
@@ -798,8 +809,14 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       plantLibrary.forEach(sanitizePlant);
       renderLibrary();
       renderBackpack();
-      addLog("配置加载成功！", "end");
     }
+    if (Array.isArray(data.monsterTypes) && data.monsterTypes.length >= 1) {
+      monsterTypes.splice(0, monsterTypes.length);
+      data.monsterTypes.forEach(function(m) { monsterTypes.push(m); });
+      monsterTypes.forEach(sanitizeMonster);
+      renderMonsterLibrary();
+    }
+    addLog("配置加载成功！", "end");
   } catch(e) { addLog("配置解析失败。", "dodge"); }
 });
 
@@ -951,8 +968,116 @@ document.getElementById("btnAddPlant").addEventListener("click", function() {
   addLog("新植物已添加，请填写属性后保存。", "end");
 });
 
+// ─────────────────── Monster Library Editor ──────────
+const elMonsterLibraryList   = document.getElementById("monsterLibraryList");
+const elMonsterLibraryBody   = document.getElementById("monsterLibraryBody");
+const elMonsterLibraryToggle = document.getElementById("monsterLibraryToggle");
+
+elMonsterLibraryToggle.addEventListener("click", function() {
+  const open = elMonsterLibraryBody.style.display === "none";
+  elMonsterLibraryBody.style.display = open ? "" : "none";
+});
+
+const monsterFields = [
+  { key: "name",           label: "名字",       type: "text"   },
+  { key: "emoji",          label: "Emoji",      type: "text"   },
+  { key: "hp",             label: "HP",         type: "number", step: "1"    },
+  { key: "atk",            label: "ATK",        type: "number", step: "1"    },
+  { key: "speed",          label: "移动速度",   type: "number", step: "0.01" },
+  { key: "attackInterval", label: "攻击间隔(ms)", type: "number", step: "100" },
+  { key: "reward",         label: "击杀奖励",   type: "number", step: "1"    },
+];
+
+function renderMonsterLibrary() {
+  elMonsterLibraryList.innerHTML = monsterTypes.map(function(m, i) {
+    const rows = monsterFields.map(function(f) {
+      const fid = "mon-" + i + "-" + f.key;
+      return "<label>" + escHtml(f.label) +
+        '<input id="' + fid + '" type="' + f.type + '" step="' + (f.step || "1") + '" value="' +
+        escHtml(String(m[f.key] !== undefined ? m[f.key] : "")) + '"></label>';
+    }).join("");
+
+    return '<div class="library-item monster-item" data-idx="' + i + '">' +
+      '<div class="library-item-summary">' +
+        '<span class="mon-emoji">' + escHtml(m.emoji) + "</span>" +
+        '<span class="lib-name">'  + escHtml(m.name)  + "</span>" +
+        '<span class="lib-stat">HP '  + m.hp   + "</span>" +
+        '<span class="lib-stat">ATK ' + m.atk  + "</span>" +
+        '<span class="lib-stat">速度 ' + m.speed + "</span>" +
+        '<span class="lib-stat">间隔 ' + m.attackInterval + 'ms</span>' +
+        '<span class="lib-stat">奖励 ' + m.reward + "</span>" +
+        '<div class="lib-actions">' +
+          '<button class="ghost btn-mon-edit" data-idx="'   + i + '">编辑</button>' +
+          '<button class="btn-danger btn-mon-del" data-idx="' + i + '">删除</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="library-item-form" id="mon-form-' + i + '" style="display:none">' +
+        rows +
+        '<div class="lib-form-actions">' +
+          '<button class="btn-mon-save" data-idx="'    + i + '">保存</button>' +
+          '<button class="ghost btn-mon-cancel" data-idx="' + i + '">取消</button>' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  }).join("");
+}
+
+elMonsterLibraryList.addEventListener("click", function(evt) {
+  const btn = evt.target;
+  if (!(btn instanceof HTMLElement)) return;
+
+  if (btn.classList.contains("btn-mon-edit")) {
+    const form = document.getElementById("mon-form-" + btn.dataset.idx);
+    if (form) form.style.display = form.style.display === "none" ? "grid" : "none";
+    return;
+  }
+  if (btn.classList.contains("btn-mon-cancel")) {
+    const form = document.getElementById("mon-form-" + btn.dataset.idx);
+    if (form) form.style.display = "none";
+    return;
+  }
+  if (btn.classList.contains("btn-mon-save")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    const m   = monsterTypes[idx];
+    monsterFields.forEach(function(f) {
+      const node = document.getElementById("mon-" + idx + "-" + f.key);
+      if (!node) return;
+      m[f.key] = f.type === "number" ? toNum(node.value, m[f.key]) : node.value;
+    });
+    sanitizeMonster(m);
+    renderMonsterLibrary();
+    addLog("怪物库已更新：" + m.name, "end");
+    return;
+  }
+  if (btn.classList.contains("btn-mon-del")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (monsterTypes.length <= 1) { addLog("至少需要保留 1 个怪物。", "dodge"); return; }
+    const name = monsterTypes[idx].name;
+    monsterTypes.splice(idx, 1);
+    renderMonsterLibrary();
+    addLog("已从怪物库移除：" + name, "end");
+    return;
+  }
+});
+
+document.getElementById("btnAddMonster").addEventListener("click", function() {
+  const newM = {
+    name: "新怪物", emoji: "👻", hp: 300, atk: 35,
+    speed: 0.27, attackInterval: 1600, reward: 10,
+  };
+  sanitizeMonster(newM);
+  monsterTypes.push(newM);
+  renderMonsterLibrary();
+  const newIdx = monsterTypes.length - 1;
+  const form   = document.getElementById("mon-form-" + newIdx);
+  if (form) form.style.display = "grid";
+  if (elMonsterLibraryBody.style.display === "none") elMonsterLibraryBody.style.display = "";
+  addLog("新怪物已添加，请填写属性后保存。", "end");
+});
+
 // ─────────────────── Boot ────────────────────────────
 renderLibrary();
+renderMonsterLibrary();
 initGrid();
 renderBackpack();
 updateHUD();
