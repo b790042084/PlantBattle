@@ -455,10 +455,6 @@ function plantCard(p, slot, teamKey) {
       <div class="meta">HP: ${Math.max(0, p.hp)} / ${p.maxHp}</div>
       <div class="meta">状态: ${status.length ? status.join(" | ") : "无"}</div>
       <div class="hpbar"><div class="hpfill" style="width:${ratio * 100}%"></div></div>
-      <div class="card-tools">
-        <button class="btn-swap" data-team="${teamKey}" data-slot="${slot}" data-dir="-1" ${allowSwap ? "" : "disabled"}>左移</button>
-        <button class="btn-swap" data-team="${teamKey}" data-slot="${slot}" data-dir="1" ${allowSwap ? "" : "disabled"}>右移</button>
-      </div>
     </div>
   `;
 }
@@ -814,19 +810,6 @@ el.simulateBatch.addEventListener("click", () => {
     return;
   }
   runBatchSimulation();
-});
-
-document.addEventListener("click", (evt) => {
-  const target = evt.target;
-  if (!(target instanceof HTMLElement)) return;
-  if (!target.classList.contains("btn-swap")) return;
-
-  const team = target.dataset.team;
-  const slot = Number(target.dataset.slot);
-  const dir = Number(target.dataset.dir);
-  if (!team || !slot || !dir) return;
-
-  swapPlants(team, slot - 1, dir);
 });
 
 document.addEventListener("dragstart", (evt) => {
