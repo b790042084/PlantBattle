@@ -38,8 +38,11 @@ jobs:
 
       - name: Commit updated version
         run: |
-          git config user.name  "github-actions[bot]"
+          git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet app.js || \
+          if git diff --quiet app.js; then
+            echo "No version change — skipping commit."
+          else
             git commit -am "chore: bump APP_VERSION to ${{ steps.version.outputs.version }} [skip ci]"
-          git push
+            git push
+          fi
