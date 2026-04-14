@@ -223,6 +223,28 @@ label {
   white-space: nowrap;
 }
 
+/* Stripe safety/danger labels */
+.stripe-label {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 1;
+  padding-right: 4px;
+  letter-spacing: 0.5px;
+}
+.stripe-safe {
+  color: rgba(40, 160, 60, 0.7);
+}
+.stripe-danger {
+  color: rgba(255, 60, 60, 0.85);
+  text-shadow: 0 0 4px rgba(255,0,0,0.3);
+}
+
 /* Player character in collection zone */
 .player-character {
   position: absolute;

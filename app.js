@@ -28,10 +28,10 @@ const monsterTypes = [
 
 // ─────────────────── Wave Types ─────────────────────
 const waveTypes = [
-  { name: "缓慢海浪", speed: 0.2,  spawnInterval: 7000, weight: 20 },
-  { name: "普通海浪", speed: 0.4,  spawnInterval: 5000, weight: 50 },
-  { name: "快速海浪", speed: 0.6,  spawnInterval: 3500, weight: 20 },
-  { name: "极速海浪", speed: 0.9,  spawnInterval: 2000, weight: 10 },
+  { name: "缓慢海浪", speed: 0.2,  spawnInterval: 7000, weight: 20, color: "#0096ff" },
+  { name: "普通海浪", speed: 0.4,  spawnInterval: 5000, weight: 50, color: "#0096ff" },
+  { name: "快速海浪", speed: 0.6,  spawnInterval: 3500, weight: 20, color: "#ff6600" },
+  { name: "极速海浪", speed: 0.9,  spawnInterval: 2000, weight: 10, color: "#ff0033" },
 ];
 
 function sanitizeWave(w) {
@@ -39,6 +39,7 @@ function sanitizeWave(w) {
   w.speed         = Math.max(0.05,            toNum(w.speed,  0.4));
   w.spawnInterval = Math.max(500, Math.floor(toNum(w.spawnInterval, 5000)));
   w.weight        = Math.max(0,   Math.floor(toNum(w.weight,   50)));
+  w.color         = String(w.color || "#0096ff").trim() || "#0096ff";
 }
 waveTypes.forEach(sanitizeWave);
 
@@ -517,6 +518,10 @@ function spawnWave() {
   el.dataset.id = wave.id;
   el.style.top = "0%";
   el.style.display = "block";
+  // Apply wave color from config
+  const c = waveType.color || "#0096ff";
+  el.style.background = "linear-gradient(180deg, " + c + "e6 0%, " + c + "cc 40%, " + c + "b3 100%)";
+  el.style.boxShadow = "0 0 8px " + c + "b3, inset 0 2px 4px rgba(255,255,255,0.5)";
   elCollect.appendChild(el);
   wave.el = el;
 
@@ -675,7 +680,24 @@ function startDay() {
   console.log("[DEBUG] elCollect:", elCollect);
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   elCollect.querySelectorAll(".wave").forEach(function(e) { e.remove(); });
+  elCollect.querySelectorAll(".stripe-label").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
+
+  // Render stripe safety/danger labels on the right side
+  for (let r = 0; r < COLLECTION_ROWS; r++) {
+    const lbl = document.createElement("div");
+    lbl.className = "stripe-label";
+    const isDanger = r % 2 === 1; // odd = black = danger
+    lbl.textContent = isDanger ? "⚠ 危险" : "✓ 安全";
+    lbl.style.top = (r * STRIPE_HEIGHT) + "%";
+    lbl.style.height = STRIPE_HEIGHT + "%";
+    if (isDanger) {
+      lbl.classList.add("stripe-danger");
+    } else {
+      lbl.classList.add("stripe-safe");
+    }
+    elCollect.appendChild(lbl);
+  }
 
   // Create player character
   createPlayer();
@@ -1495,6 +1517,7 @@ const waveFields = [
   { key: "speed",         label: "移动速度",   type: "number", step: "0.05" },
   { key: "spawnInterval", label: "刷新间隔(ms)", type: "number", step: "100" },
   { key: "weight",        label: "权重比例(%)", type: "number", step: "1"   },
+  { key: "color",         label: "颜色",       type: "color"  },
 ];
 
 function renderWaveLibrary() {
@@ -1512,6 +1535,7 @@ function renderWaveLibrary() {
         '<span class="lib-stat">速度 ' + w.speed + "</span>" +
         '<span class="lib-stat">间隔 ' + w.spawnInterval + 'ms</span>' +
         '<span class="lib-stat">权重 ' + w.weight + '%</span>' +
+        '<span class="lib-stat" style="color:' + escHtml(w.color) + '">■ ' + escHtml(w.color) + '</span>' +
         '<div class="lib-actions">' +
           '<button class="ghost btn-wave-edit" data-idx="'   + i + '">编辑</button>' +
           '<button class="btn-danger btn-wave-del" data-idx="' + i + '">删除</button>' +
