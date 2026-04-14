@@ -160,6 +160,21 @@ const elLibraryBody   = document.getElementById("libraryBody");
 const elLibraryToggle = document.getElementById("libraryToggle");
 const elVersion       = document.getElementById("versionDisplay");
 
+// Monster library
+const elMonsterLibraryList     = document.getElementById("monsterLibraryList");
+const elMonsterLibraryBody     = document.getElementById("monsterLibraryBody");
+const elMonsterLibraryToggle   = document.getElementById("monsterLibraryToggle");
+
+// Wave library
+const elWaveLibraryList        = document.getElementById("waveLibraryList");
+const elWaveLibraryBody        = document.getElementById("waveLibraryBody");
+const elWaveLibraryToggle      = document.getElementById("waveLibraryToggle");
+
+// Plant spawn library
+const elPlantSpawnLibraryList  = document.getElementById("plantSpawnLibraryList");
+const elPlantSpawnLibraryBody  = document.getElementById("plantSpawnLibraryBody");
+const elPlantSpawnLibraryToggle = document.getElementById("plantSpawnLibraryToggle");
+
 // Show current version in the HUD
 if (elVersion) elVersion.textContent = APP_VERSION;
 
@@ -1472,18 +1487,197 @@ document.getElementById("btnAddMonster").addEventListener("click", function() {
   addLog("新怪物已添加，请填写属性后保存。", "end");
 });
 
-// ─────────────────── Boot ────────────────────────────
+// ─────────────────── Wave Library ───────────────────
+elWaveLibraryToggle.addEventListener("click", function() {
+  const open = elWaveLibraryBody.style.display === "none";
+  elWaveLibraryBody.style.display = open ? "" : "none";
+});
 
-// Placeholder functions for wave and plant spawn library rendering
+const waveFields = [
+  { key: "name",          label: "名字",       type: "text"   },
+  { key: "speed",         label: "移动速度",   type: "number", step: "0.05" },
+  { key: "spawnInterval", label: "刷新间隔(ms)", type: "number", step: "100" },
+  { key: "weight",        label: "权重比例(%)", type: "number", step: "1"   },
+];
+
 function renderWaveLibrary() {
-  // TODO: Implement wave library UI editor
-  console.log("[WAVE] renderWaveLibrary - placeholder");
+  elWaveLibraryList.innerHTML = waveTypes.map(function(w, i) {
+    const rows = waveFields.map(function(f) {
+      const fid = "wave-" + i + "-" + f.key;
+      return "<label>" + escHtml(f.label) +
+        '<input id="' + fid + '" type="' + f.type + '" step="' + (f.step || "1") + '" value="' +
+        escHtml(String(w[f.key] !== undefined ? w[f.key] : "")) + '"></label>';
+    }).join("");
+
+    return '<div class="library-item wave-item" data-idx="' + i + '">' +
+      '<div class="library-item-summary">' +
+        '<span class="lib-name">'  + escHtml(w.name)  + "</span>" +
+        '<span class="lib-stat">速度 ' + w.speed + "</span>" +
+        '<span class="lib-stat">间隔 ' + w.spawnInterval + 'ms</span>' +
+        '<span class="lib-stat">权重 ' + w.weight + '%</span>' +
+        '<div class="lib-actions">' +
+          '<button class="ghost btn-wave-edit" data-idx="'   + i + '">编辑</button>' +
+          '<button class="btn-danger btn-wave-del" data-idx="' + i + '">删除</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="library-item-form" id="wave-form-' + i + '" style="display:none">' +
+        rows +
+        '<div class="lib-form-actions">' +
+          '<button class="btn-wave-save" data-idx="'    + i + '">保存</button>' +
+          '<button class="ghost btn-wave-cancel" data-idx="' + i + '">取消</button>' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  }).join("");
 }
+
+elWaveLibraryList.addEventListener("click", function(evt) {
+  const btn = evt.target;
+  if (!(btn instanceof HTMLElement)) return;
+
+  if (btn.classList.contains("btn-wave-edit")) {
+    const form = document.getElementById("wave-form-" + btn.dataset.idx);
+    if (form) form.style.display = form.style.display === "none" ? "grid" : "none";
+    return;
+  }
+  if (btn.classList.contains("btn-wave-cancel")) {
+    const form = document.getElementById("wave-form-" + btn.dataset.idx);
+    if (form) form.style.display = "none";
+    return;
+  }
+  if (btn.classList.contains("btn-wave-save")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    const w   = waveTypes[idx];
+    waveFields.forEach(function(f) {
+      const node = document.getElementById("wave-" + idx + "-" + f.key);
+      if (!node) return;
+      w[f.key] = f.type === "number" ? toNum(node.value, w[f.key]) : node.value;
+    });
+    sanitizeWave(w);
+    renderWaveLibrary();
+    addLog("海浪库已更新：" + w.name, "end");
+    return;
+  }
+  if (btn.classList.contains("btn-wave-del")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (waveTypes.length <= 1) { addLog("至少需要保留 1 种海浪类型。", "dodge"); return; }
+    const name = waveTypes[idx].name;
+    waveTypes.splice(idx, 1);
+    renderWaveLibrary();
+    addLog("已从海浪库移除：" + name, "end");
+    return;
+  }
+});
+
+document.getElementById("btnAddWave").addEventListener("click", function() {
+  const newW = {
+    name: "新海浪", speed: 0.4, spawnInterval: 5000, weight: 50,
+  };
+  sanitizeWave(newW);
+  waveTypes.push(newW);
+  renderWaveLibrary();
+  const newIdx = waveTypes.length - 1;
+  const form   = document.getElementById("wave-form-" + newIdx);
+  if (form) form.style.display = "grid";
+  if (elWaveLibraryBody.style.display === "none") elWaveLibraryBody.style.display = "";
+  addLog("新海浪类型已添加，请填写属性后保存。", "end");
+});
+
+// ─────────────────── Plant Spawn Library ──────────
+elPlantSpawnLibraryToggle.addEventListener("click", function() {
+  const open = elPlantSpawnLibraryBody.style.display === "none";
+  elPlantSpawnLibraryBody.style.display = open ? "" : "none";
+});
+
+const plantSpawnFields = [
+  { key: "name",          label: "名字",       type: "text"   },
+  { key: "spawnInterval", label: "刷新间隔(ms)", type: "number", step: "100" },
+  { key: "weight",        label: "权重比例(%)", type: "number", step: "1"   },
+];
 
 function renderPlantSpawnLibrary() {
-  // TODO: Implement plant spawn library UI editor
-  console.log("[PLANT] renderPlantSpawnLibrary - placeholder");
+  elPlantSpawnLibraryList.innerHTML = plantSpawnConfigs.map(function(p, i) {
+    const rows = plantSpawnFields.map(function(f) {
+      const fid = "spawn-" + i + "-" + f.key;
+      return "<label>" + escHtml(f.label) +
+        '<input id="' + fid + '" type="' + f.type + '" step="' + (f.step || "1") + '" value="' +
+        escHtml(String(p[f.key] !== undefined ? p[f.key] : "")) + '"></label>';
+    }).join("");
+
+    return '<div class="library-item spawn-item" data-idx="' + i + '">' +
+      '<div class="library-item-summary">' +
+        '<span class="lib-name">'  + escHtml(p.name)  + "</span>" +
+        '<span class="lib-stat">间隔 ' + p.spawnInterval + 'ms</span>' +
+        '<span class="lib-stat">权重 ' + p.weight + '%</span>' +
+        '<div class="lib-actions">' +
+          '<button class="ghost btn-spawn-edit" data-idx="'   + i + '">编辑</button>' +
+          '<button class="btn-danger btn-spawn-del" data-idx="' + i + '">删除</button>' +
+        "</div>" +
+      "</div>" +
+      '<div class="library-item-form" id="spawn-form-' + i + '" style="display:none">' +
+        rows +
+        '<div class="lib-form-actions">' +
+          '<button class="btn-spawn-save" data-idx="'    + i + '">保存</button>' +
+          '<button class="ghost btn-spawn-cancel" data-idx="' + i + '">取消</button>' +
+        "</div>" +
+      "</div>" +
+    "</div>";
+  }).join("");
 }
+
+elPlantSpawnLibraryList.addEventListener("click", function(evt) {
+  const btn = evt.target;
+  if (!(btn instanceof HTMLElement)) return;
+
+  if (btn.classList.contains("btn-spawn-edit")) {
+    const form = document.getElementById("spawn-form-" + btn.dataset.idx);
+    if (form) form.style.display = form.style.display === "none" ? "grid" : "none";
+    return;
+  }
+  if (btn.classList.contains("btn-spawn-cancel")) {
+    const form = document.getElementById("spawn-form-" + btn.dataset.idx);
+    if (form) form.style.display = "none";
+    return;
+  }
+  if (btn.classList.contains("btn-spawn-save")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    const p   = plantSpawnConfigs[idx];
+    plantSpawnFields.forEach(function(f) {
+      const node = document.getElementById("spawn-" + idx + "-" + f.key);
+      if (!node) return;
+      p[f.key] = f.type === "number" ? toNum(node.value, p[f.key]) : node.value;
+    });
+    sanitizePlantSpawn(p);
+    renderPlantSpawnLibrary();
+    addLog("植物刷新库已更新：" + p.name, "end");
+    return;
+  }
+  if (btn.classList.contains("btn-spawn-del")) {
+    const idx = parseInt(btn.dataset.idx, 10);
+    if (plantSpawnConfigs.length <= 1) { addLog("至少需要保留 1 个刷新配置。", "dodge"); return; }
+    const name = plantSpawnConfigs[idx].name;
+    plantSpawnConfigs.splice(idx, 1);
+    renderPlantSpawnLibrary();
+    addLog("已从植物刷新库移除：" + name, "end");
+    return;
+  }
+});
+
+document.getElementById("btnAddPlantSpawn").addEventListener("click", function() {
+  const newP = {
+    name: "新配置", spawnInterval: 5000, weight: 50,
+  };
+  sanitizePlantSpawn(newP);
+  plantSpawnConfigs.push(newP);
+  renderPlantSpawnLibrary();
+  const newIdx = plantSpawnConfigs.length - 1;
+  const form   = document.getElementById("spawn-form-" + newIdx);
+  if (form) form.style.display = "grid";
+  if (elPlantSpawnLibraryBody.style.display === "none") elPlantSpawnLibraryBody.style.display = "";
+  addLog("新植物刷新配置已添加，请填写属性后保存。", "end");
+});
+
+// ─────────────────── Boot ────────────────────────────
 
 function initializeGame() {
   // 检查关键 DOM 元素是否已加载

@@ -91,6 +91,34 @@
         </div>
       </section>
 
+      <!-- ===== 海浪库（可折叠配置）===== -->
+      <section class="panel library-panel wave-library-panel">
+        <div class="library-panel-head" id="waveLibraryToggle">
+          <h3>海浪库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+        </div>
+        <div class="library-panel-body" id="waveLibraryBody" style="display:none">
+          <p class="panel-tip">可在此处调整海浪的移动速度、刷新间隔及权重配置。</p>
+          <div class="library-header">
+            <button id="btnAddWave" class="ghost">＋ 添加海浪类型</button>
+          </div>
+          <div id="waveLibraryList" class="library-list"></div>
+        </div>
+      </section>
+
+      <!-- ===== 植物刷新配置（可折叠配置）===== -->
+      <section class="panel library-panel plant-spawn-library-panel">
+        <div class="library-panel-head" id="plantSpawnLibraryToggle">
+          <h3>植物刷新配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+        </div>
+        <div class="library-panel-body" id="plantSpawnLibraryBody" style="display:none">
+          <p class="panel-tip">可在此处调整植物的刷新间隔及权重，白天开始时会按权重随机选择一个配置。</p>
+          <div class="library-header">
+            <button id="btnAddPlantSpawn" class="ghost">＋ 添加刷新配置</button>
+          </div>
+          <div id="plantSpawnLibraryList" class="library-list"></div>
+        </div>
+      </section>
+
       <!-- ===== 日志 ===== -->
       <section class="panel log-panel">
         <div class="log-head">
