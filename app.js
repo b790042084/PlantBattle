@@ -42,8 +42,7 @@ const LANES             = 5;
 const ROWS              = 2;
 const SLOTS             = LANES * ROWS;
 const DAY_DURATION      = 30;
-const PLACEMENT_DURATION = 15;
-const DUSK_DURATION     = 10;
+const DUSK_DURATION     = 15;
 const SPAWN_INTERVAL    = 5500;
 const MAX_SPAWNED       = 5;
 const COMBAT_TICK       = 900;
@@ -147,7 +146,43 @@ const gs = {
   lastFrame:  0,
   lastCombat: 0,
   lastPoison: 0,
+
+  // Player character for collection
+  player: {
+    x: 50,  // percentage
+    y: 50,  // percentage
+    row: 2, // which stripe row (0-4)
+    size: 40, // px
+    speed: 0.8, // percentage per frame at 60fps
+    isJumping: false,
+    jumpProgress: 0,
+  },
+  keys: {},
+  waves: [], // active waves in collection zone
+  waveSpawnTimer: 0,
 };
+
+// ─────────────────── Keyboard Controls ───────────────
+document.addEventListener("keydown", function(e) {
+  const key = e.key.toLowerCase();
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d"].includes(key)) {
+    e.preventDefault();
+    gs.keys[key] = true;
+  }
+  // Jump with spacebar - always prevent default to avoid page scroll
+  if (key === " ") {
+    e.preventDefault();
+    if (gs.phase === "day" && !gs.player.isJumping) {
+      gs.player.isJumping = true;
+      gs.player.jumpProgress = 0;
+    }
+  }
+});
+
+document.addEventListener("keyup", function(e) {
+  const key = e.key.toLowerCase();
+  gs.keys[key] = false;
+});
 
 // ─────────────────── Logging ─────────────────────────
 function addLog(text, type) {
@@ -164,7 +199,7 @@ function updateBackground() {
   const body = document.body;
   body.classList.remove("bg-day", "bg-dusk", "bg-night");
 
-  if (gs.phase === "day" || gs.phase === "placement") {
+  if (gs.phase === "day") {
     body.classList.add("bg-day");
   } else if (gs.phase === "dusk") {
     body.classList.add("bg-dusk");
@@ -180,15 +215,14 @@ function updateHUD() {
   const labels = {
     idle:"等待开始",
     day:"白天 — 收集中",
-    placement:"摆放植物",
-    dusk:"黄昏 — 准备中",
+    dusk:"黄昏 — 摆放植物",
     night:"夜晚 — 刷怪中",
     gameover:"游戏结束"
   };
   elPhaseChip.textContent = labels[gs.phase] || gs.phase;
   elPhaseChip.className   = "chip phase-chip phase-" + gs.phase;
 
-  const showTimer = gs.phase === "day" || gs.phase === "placement" || gs.phase === "dusk";
+  const showTimer = gs.phase === "day" || gs.phase === "dusk";
   elTimerChip.style.display = showTimer ? "" : "none";
   if (showTimer) elDayTimer.textContent = gs.phaseLeft;
 
@@ -214,7 +248,7 @@ function renderGrid() {
     const el    = elPlantingGrid.children[i];
     if (!el) continue;
     const plant = gs.grid[i];
-    const canHL = gs.selectedId !== null && !plant && gs.phase === "placement";
+    const canHL = gs.selectedId !== null && !plant && gs.phase === "dusk";
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
@@ -252,7 +286,7 @@ function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
-    if (gs.phase === "placement") {
+    if (gs.phase === "dusk") {
       gs.grid[idx] = null;
       gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx });
       addLog(plant.name + " 已取回到背包", "dodge");
@@ -261,7 +295,7 @@ function onSlotClick(e) {
     }
     return;
   }
-  if (gs.phase !== "placement" || !gs.selectedId) return;
+  if (gs.phase !== "dusk" || !gs.selectedId) return;
 
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
   if (bpIdx === -1) { gs.selectedId = null; renderBackpack(); return; }
@@ -323,6 +357,148 @@ function renderBackpack() {
 }
 
 // ─────────────────── Collection Zone ─────────────────
+let elPlayer = null;
+
+function createPlayer() {
+  if (elPlayer) elPlayer.remove();
+  elPlayer = document.createElement("div");
+  elPlayer.className = "player-character";
+  elPlayer.textContent = "🧑";
+  elCollect.appendChild(elPlayer);
+  updatePlayerPosition();
+}
+
+function updatePlayerPosition() {
+  if (!elPlayer) return;
+
+  // Handle jump animation
+  let yOffset = 0;
+  if (gs.player.isJumping) {
+    gs.player.jumpProgress += 0.1;
+    if (gs.player.jumpProgress >= 1) {
+      gs.player.isJumping = false;
+      gs.player.jumpProgress = 0;
+      // Change row after jump
+      const dy = (gs.keys["arrowup"] || gs.keys["w"]) ? -1 : (gs.keys["arrowdown"] || gs.keys["s"]) ? 1 : 0;
+      gs.player.row = Math.max(0, Math.min(4, gs.player.row + dy));
+    } else {
+      // Jump arc
+      yOffset = -Math.sin(gs.player.jumpProgress * Math.PI) * 15;
+    }
+  }
+
+  // Position based on row (5 stripes, each 20% height)
+  const targetY = gs.player.row * 20 + 10;
+  gs.player.y = targetY;
+
+  elPlayer.style.left = gs.player.x + "%";
+  elPlayer.style.top = gs.player.y + "%";
+  elPlayer.style.transform = "translate(-50%, calc(-50% + " + yOffset + "px))";
+}
+
+function movePlayer() {
+  if (gs.phase !== "day") return;
+
+  let dx = 0;
+
+  // Only horizontal movement, vertical via jumping
+  if (gs.keys["arrowleft"] || gs.keys["a"]) dx -= 1;
+  if (gs.keys["arrowright"] || gs.keys["d"]) dx += 1;
+
+  // Update horizontal position with boundaries
+  gs.player.x = Math.max(5, Math.min(95, gs.player.x + dx * gs.player.speed));
+
+  updatePlayerPosition();
+  checkPlantCollisions();
+  checkWaveCollisions();
+}
+
+// Wave system
+function spawnWave() {
+  if (gs.phase !== "day") return;
+
+  const wave = {
+    id: uid(),
+    y: 0,
+    speed: 0.3 + Math.random() * 0.5, // varying speeds
+    el: null,
+  };
+
+  const el = document.createElement("div");
+  el.className = "wave";
+  el.dataset.id = wave.id;
+  elCollect.appendChild(el);
+  wave.el = el;
+
+  gs.waves.push(wave);
+}
+
+function updateWaves() {
+  if (gs.phase !== "day") return;
+
+  // Update wave positions
+  for (let i = gs.waves.length - 1; i >= 0; i--) {
+    const wave = gs.waves[i];
+    wave.y += wave.speed;
+
+    if (wave.el) {
+      wave.el.style.top = wave.y + "%";
+    }
+
+    // Remove waves that have gone off screen
+    if (wave.y > 100) {
+      if (wave.el) wave.el.remove();
+      gs.waves.splice(i, 1);
+    }
+  }
+}
+
+function checkWaveCollisions() {
+  if (gs.phase !== "day") return;
+
+  const playerRow = gs.player.row;
+  const isOnWhiteRow = playerRow % 2 === 0; // Even rows are white (0, 2, 4)
+
+  if (isOnWhiteRow) return; // Safe on white rows
+
+  const playerY = gs.player.y;
+
+  for (const wave of gs.waves) {
+    // Check if wave is at player's position (±5% tolerance)
+    if (Math.abs(wave.y - playerY) < 8) {
+      // Hit by wave on black row - reset to start
+      gs.player.x = 50;
+      gs.player.row = 2;
+      gs.player.y = 50;
+      updatePlayerPosition();
+      addLog("被海浪击中！回到起点", "dodge");
+      break;
+    }
+  }
+}
+
+function checkPlantCollisions() {
+  if (gs.phase !== "day") return;
+
+  const collectionRect = elCollect.getBoundingClientRect();
+  const playerSize = gs.player.size;
+  const playerX = (gs.player.x / 100) * collectionRect.width;
+  const playerY = (gs.player.y / 100) * collectionRect.height;
+
+  for (let i = gs.spawned.length - 1; i >= 0; i--) {
+    const sp = gs.spawned[i];
+    const plantX = parseFloat(sp.el.style.left) / 100 * collectionRect.width;
+    const plantY = parseFloat(sp.el.style.top) / 100 * collectionRect.height;
+
+    const dist = Math.sqrt(Math.pow(playerX - plantX, 2) + Math.pow(playerY - plantY, 2));
+    const collectDist = playerSize;
+
+    if (dist < collectDist) {
+      collectPlant(sp.id);
+    }
+  }
+}
+
 function spawnCollectionPlant() {
   if (gs.phase !== "day") return;
   if (gs.spawned.length >= MAX_SPAWNED) return;
@@ -350,9 +526,8 @@ function spawnCollectionPlant() {
 
   el.appendChild(img);
   el.appendChild(lbl);
-  el.addEventListener("click", function() { collectPlant(id); });
   elCollect.appendChild(el);
-  gs.spawned.push({ id: id, plantIdx: plantIdx, el: el });
+  gs.spawned.push({ id: id, plantIdx: plantIdx, el: el, x: x, y: y });
 
   setTimeout(function() {
     const idx = gs.spawned.findIndex(function(s) { return s.id === id; });
@@ -374,12 +549,36 @@ function collectPlant(id) {
 }
 
 // ─────────────────── Day Phase ───────────────────────
+let playerMoveInterval = null;
+let waveUpdateInterval = null;
+let waveSpawnInterval = null;
+
 function startDay() {
   gs.phase   = "day";
   gs.phaseLeft = DAY_DURATION;
   gs.spawned = [];
+  gs.waves = [];
+  gs.player.x = 50;
+  gs.player.y = 50;
+  gs.player.row = 2;
+  gs.player.isJumping = false;
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
+  elCollect.querySelectorAll(".wave").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";
+
+  // Create player character
+  createPlayer();
+
+  // Start player movement loop
+  if (playerMoveInterval) clearInterval(playerMoveInterval);
+  playerMoveInterval = setInterval(movePlayer, 16); // ~60fps
+
+  // Start wave system
+  if (waveUpdateInterval) clearInterval(waveUpdateInterval);
+  waveUpdateInterval = setInterval(updateWaves, 16); // ~60fps
+
+  if (waveSpawnInterval) clearInterval(waveSpawnInterval);
+  waveSpawnInterval = setInterval(spawnWave, 5000); // Every 5 seconds
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
@@ -401,37 +600,29 @@ function startDay() {
 function endDay() {
   clearInterval(gs.spawnHandle);
   gs.spawnHandle = null;
+  if (playerMoveInterval) {
+    clearInterval(playerMoveInterval);
+    playerMoveInterval = null;
+  }
+  if (waveUpdateInterval) {
+    clearInterval(waveUpdateInterval);
+    waveUpdateInterval = null;
+  }
+  if (waveSpawnInterval) {
+    clearInterval(waveSpawnInterval);
+    waveSpawnInterval = null;
+  }
+  if (elPlayer) {
+    elPlayer.remove();
+    elPlayer = null;
+  }
   gs.spawned.forEach(function(s) { s.el.remove(); });
   gs.spawned     = [];
+  gs.waves.forEach(function(w) { if (w.el) w.el.remove(); });
+  gs.waves = [];
   gs.selectedId  = null;
   if (elCollectHint) elCollectHint.style.display = "none";
-  addLog("白天结束！进入摆放植物阶段…", "round");
-  renderBackpack();
-  renderGrid();
-  setTimeout(startPlacement, 2000);
-}
-
-// ─────────────────── Placement Phase ─────────────────
-function startPlacement() {
-  gs.phase = "placement";
-  gs.phaseLeft = PLACEMENT_DURATION;
-  updateHUD();
-  addLog("════ 摆放植物阶段！" + PLACEMENT_DURATION + " 秒布置防线 ════", "round");
-
-  gs.phaseHandle = setInterval(function() {
-    gs.phaseLeft -= 1;
-    updateHUD();
-    if (gs.phaseLeft <= 0) {
-      clearInterval(gs.phaseHandle);
-      gs.phaseHandle = null;
-      endPlacement();
-    }
-  }, 1000);
-}
-
-function endPlacement() {
-  gs.selectedId = null;
-  addLog("摆放阶段结束！进入黄昏…", "round");
+  addLog("白天结束！进入黄昏…", "round");
   renderBackpack();
   renderGrid();
   setTimeout(startDusk, 2000);
@@ -442,7 +633,7 @@ function startDusk() {
   gs.phase = "dusk";
   gs.phaseLeft = DUSK_DURATION;
   updateHUD();
-  addLog("════ 黄昏时分！" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
+  addLog("════ 黄昏时分！摆放植物，" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
 
   gs.phaseHandle = setInterval(function() {
     gs.phaseLeft -= 1;
@@ -456,6 +647,9 @@ function startDusk() {
 }
 
 function endDusk() {
+  gs.selectedId = null;
+  renderBackpack();
+  renderGrid();
   addLog("黄昏结束！夜晚开始…", "round");
   setTimeout(startNight, 2000);
 }
