@@ -37,6 +37,7 @@ export function sanitizePlant(p) {
   p.skillCoef= Math.max(1,               toNum(p.skillCoef, 1.5));
   p.skillCd  = Math.max(0, Math.floor(   toNum(p.skillCd,    2)));
   if (!["normal","poison","shield","slow"].includes(p.skillType)) p.skillType = "normal";
+  p.goldPerSec = Math.max(0, Math.floor(toNum(p.goldPerSec, 3)));
 }
 
 export function roleLabel(r) { return r === "defender" ? "防御" : r === "support" ? "辅助" : "输出"; }

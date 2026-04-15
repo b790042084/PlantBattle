@@ -27,6 +27,7 @@
           <div class="chip">波次 <strong id="roundNum">0</strong></div>
           <div class="chip timer-chip" id="timerChip" style="display:none">⏱ <strong id="dayTimer">30</strong>s</div>
           <div class="chip">❤️ <strong id="livesDisplay">5</strong></div>
+          <div class="chip">💰 <strong id="goldDisplay">0</strong></div>
           <div class="chip">⭐ <strong id="scoreDisplay">0</strong></div>
           <div class="chip version-chip">🏷️ <strong id="versionDisplay">—</strong></div>
         </div>
@@ -58,9 +59,45 @@
         <div class="backpack-header">
           <h3>背包</h3>
           <span id="backpackCount">0 个植物</span>
-          <span class="backpack-hint">点击植物选中 → 再点种植区空格放置</span>
+          <span class="backpack-hint">点击植物选中 → 点空格放置 / 点同名已种植物喂养突破</span>
         </div>
         <div id="backpackItems" class="backpack-items"></div>
+      </section>
+
+      <!-- ===== 升级商店 ===== -->
+      <section class="shop-section">
+        <div class="shop-header">
+          <h3>💰 升级商店</h3>
+          <span class="shop-hint">使用金钱升级各项能力</span>
+        </div>
+        <div id="shopContent" class="shop-content">
+          <div class="shop-category">
+            <h4>🎒 玩家属性</h4>
+            <div class="shop-item" id="shopCarry">
+              <div class="shop-item-info">
+                <span class="shop-item-name">携带数量</span>
+                <span class="shop-item-desc">增加收集时可携带的植物数量</span>
+                <span class="shop-item-level" id="carryLevelDisplay">等级 0 · 当前上限 3</span>
+              </div>
+              <button class="shop-buy-btn" id="btnUpgradeCarry">升级 <span id="carryCostDisplay">50</span>💰</button>
+            </div>
+          </div>
+          <div class="shop-category">
+            <h4>🌱 种植区</h4>
+            <div class="shop-item" id="shopZone">
+              <div class="shop-item-info">
+                <span class="shop-item-name">种植区等级</span>
+                <span class="shop-item-desc">增加种植区可放置植物的格子数</span>
+                <span class="shop-item-level" id="zoneLevelDisplay">等级 0 · 当前格子 6</span>
+              </div>
+              <button class="shop-buy-btn" id="btnUpgradeZone">升级 <span id="zoneCostDisplay">80</span>💰</button>
+            </div>
+          </div>
+          <div class="shop-category">
+            <h4>🌿 植物升级</h4>
+            <div id="shopPlantUpgrades" class="shop-plant-list"></div>
+          </div>
+        </div>
       </section>
 
       <!-- ===== 植物库（可折叠配置）===== -->

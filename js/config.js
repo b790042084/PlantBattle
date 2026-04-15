@@ -7,12 +7,12 @@ export const APP_VERSION = "v0.0.0-c8aab90";
 
 // ─────────────────── Plant Library ───────────────────
 export const plantLibrary = [
-  { name: "坚果墙",   image: "", role: "defender", attackMode: "melee",  hp: 1800, atk:  60, df: 80, crit: 0.08, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield"  },
-  { name: "豌豆射手", image: "", role: "attacker", attackMode: "ranged", hp:  900, atk: 180, df: 30, crit: 0.20, critDmg: 1.5, dodge: 0.00, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal"  },
-  { name: "寒冰射手", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.00, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow"    },
-  { name: "铁桶坚果", image: "", role: "defender", attackMode: "melee",  hp: 2000, atk:  70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield"  },
-  { name: "毒液花",   image: "", role: "attacker", attackMode: "area",   hp:  850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.00, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison"  },
-  { name: "机枪豌豆", image: "", role: "attacker", attackMode: "ranged", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.00, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal"  },
+  { name: "坚果墙",   image: "", role: "defender", attackMode: "melee",  hp: 1800, atk:  60, df: 80, crit: 0.08, critDmg: 1.5, dodge: 0.05, skillName: "硬壳格挡", skillCoef: 1.2, skillCd: 2, skillType: "shield",  goldPerSec: 2  },
+  { name: "豌豆射手", image: "", role: "attacker", attackMode: "ranged", hp:  900, atk: 180, df: 30, crit: 0.20, critDmg: 1.5, dodge: 0.00, skillName: "三连豌豆", skillCoef: 1.8, skillCd: 2, skillType: "normal",  goldPerSec: 5  },
+  { name: "寒冰射手", image: "", role: "attacker", attackMode: "ranged", hp: 1000, atk: 150, df: 40, crit: 0.15, critDmg: 1.5, dodge: 0.00, skillName: "寒冰重击", skillCoef: 1.6, skillCd: 1, skillType: "slow",    goldPerSec: 4  },
+  { name: "铁桶坚果", image: "", role: "defender", attackMode: "melee",  hp: 2000, atk:  70, df: 90, crit: 0.08, critDmg: 1.5, dodge: 0.03, skillName: "反伤硬化", skillCoef: 1.2, skillCd: 2, skillType: "shield",  goldPerSec: 3  },
+  { name: "毒液花",   image: "", role: "attacker", attackMode: "area",   hp:  850, atk: 170, df: 35, crit: 0.18, critDmg: 1.5, dodge: 0.00, skillName: "毒刺爆发", skillCoef: 1.9, skillCd: 3, skillType: "poison",  goldPerSec: 6  },
+  { name: "机枪豌豆", image: "", role: "attacker", attackMode: "ranged", hp: 1100, atk: 140, df: 45, crit: 0.12, critDmg: 1.5, dodge: 0.00, skillName: "弹幕扫射", skillCoef: 1.7, skillCd: 2, skillType: "normal",  goldPerSec: 5  },
 ];
 plantLibrary.forEach(sanitizePlant);
 
@@ -120,3 +120,33 @@ export function isBlackStripe(yPercent) {
   const stripeIndex = Math.floor(yPercent / STRIPE_HEIGHT);
   return stripeIndex % 2 === 1;  // Odd indices are black
 }
+
+// ─────────────────── Economy & Growth Constants ───────
+export const PLANT_STAGES      = 4;           // Total growth stages
+export const STAGE_RATIOS      = [0.25, 0.50, 0.75, 1.0]; // Stat ratio per stage
+export const STAGE_NAMES       = ["幼苗", "成长", "成熟", "完全体"];
+export const GOLD_TICK_MS      = 1000;        // Gold generation interval (ms)
+
+// Breakthrough: feed same-type plants to gain EXP, then wait for breakthrough
+export const BREAKTHROUGH_EXP  = [3, 4, 5];  // EXP needed for stage 1→2, 2→3, 3→4
+export const BREAKTHROUGH_TIME = 10;          // Seconds to complete breakthrough once EXP is full
+
+export const PLAYER_BASE_CARRY   = 3;         // Default max carry capacity
+export const CARRY_UPGRADE_COST  = [50, 120, 200, 300, 500]; // Cost per carry upgrade level
+export const CARRY_UPGRADE_BONUS = 1;         // +1 carry per upgrade
+
+export const ZONE_BASE_SLOTS        = 6;      // Starting planting slots
+export const ZONE_UPGRADE_COST      = [80, 150, 250, 400]; // Cost per zone level
+export const ZONE_UPGRADE_SLOTS     = 1;      // +1 slot per zone level
+
+export const PLANT_UPGRADE_COST_BASE = 30;    // Base cost to upgrade plant level
+export const PLANT_UPGRADE_COST_MULT = 1.5;   // Cost multiplier per level
+export const PLANT_UPGRADE_STAT_MULT = 0.15;  // +15% stats per plant level
+
+// ─────────────────── Attack Range per Mode ───────────
+// Distance is Euclidean: sqrt((lane_diff)² + (y_diff)²)
+export const ATTACK_RANGE = {
+  melee:  1.5,   // Short range — own lane + adjacent, nearby y
+  ranged: 100,   // Effectively unlimited — entire battlefield
+  area:   3.0,   // Medium radius — all monsters within get attacked
+};

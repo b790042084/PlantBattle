@@ -204,15 +204,19 @@ function spawnCollectionPlant() {
 function collectPlant(id) {
   const idx = gs.spawned.findIndex(function(s) { return s.id === id; });
   if (idx === -1) return;
+  // Check carry capacity
+  if (gs.carried.length >= gs.player.maxCarry) {
+    return; // Can't carry more
+  }
   const sp   = gs.spawned[idx];
   const pDef = plantLibrary[sp.plantIdx];
   sp.el.classList.add("collected");
   setTimeout(function() { sp.el.remove(); }, 350);
   gs.spawned.splice(idx, 1);
-  // Add to carried (above head), not directly to backpack
-  gs.carried.push({ id: uid(), plantIdx: sp.plantIdx });
+  // Add to carried (above head) with stage 1 (seedling)
+  gs.carried.push({ id: uid(), plantIdx: sp.plantIdx, stage: 1, plantLevel: 0 });
   renderCarriedPlants();
-  addLog("拾取了 " + pDef.name + "！回到出生区存入背包", "end");
+  addLog("拾取了 " + pDef.name + "（幼苗）！回到出生区存入背包（" + gs.carried.length + "/" + gs.player.maxCarry + "）", "end");
 }
 
 // ─────────────────── Player movement ─────────────────
@@ -341,7 +345,7 @@ function endDay() {
   // Deposit any remaining carried plants to backpack at end of day
   if (gs.carried.length > 0) {
     gs.carried.forEach(function(c) {
-      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
+      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx, stage: c.stage || 1, plantLevel: c.plantLevel || 0 });
     });
     addLog("白天结束，携带的植物自动存入背包。", "end");
     gs.carried = [];

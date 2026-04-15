@@ -85,7 +85,7 @@ export function depositCarriedPlants() {
     // Remove flying element and add to backpack after animation
     setTimeout(function() {
       fly.remove();
-      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx });
+      gs.backpack.push({ id: uid(), plantIdx: c.plantIdx, stage: c.stage || 1, plantLevel: c.plantLevel || 0 });
       renderBackpack();
       // Mark the last added item for pop animation
       const items = elBackpackItems.querySelectorAll(".bp-item");
