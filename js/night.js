@@ -45,6 +45,7 @@ function buildQueue() {
         lane:           Math.floor(Math.random() * LANES),
         y:              0,
         eating:         false,
+        eatingCrystal:  false,
         eatRow:         -1,
         lastAttack:     0,
         slowUntil:      0,
@@ -638,6 +639,11 @@ export function fullReset() {
     if (idx >= 0 && idx < SLOTS) gs.unlockedSlots[idx] = true;
   });
   gs.slotUnlockCredits = 0;
+
+  // Reset crystal
+  gs.crystal.level = 0;
+  gs.crystal.hp = 0;
+  gs.crystal.maxHp = 0;
 
   gs.monsters    = [];
   gs.mQueue      = [];
