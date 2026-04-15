@@ -110,6 +110,13 @@ export const gs = {
   activeSlots: gameConfig.zoneBaseSlots,
   unlockedSlots: buildUnlockedSlots(),
   slotUnlockCredits: 0,
+
+  // Crystal barrier
+  crystal: {
+    hp: 0,
+    maxHp: 0,
+    level: 0,
+  },
 };
 
 // ─────────────────── Keyboard Controls ───────────────

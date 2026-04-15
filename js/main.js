@@ -7,7 +7,7 @@ import {
 } from "./config.js";
 import { sanitizePlant } from "./utils.js";
 import { gs, elLog, elVersion } from "./state.js";
-import { addLog, initGrid, renderBackpack, updateHUD, upgradeCarry, upgradeZone } from "./hud.js";
+import { addLog, initGrid, renderBackpack, updateHUD, upgradeCarry, upgradeZone, upgradeCrystal } from "./hud.js";
 import { startDay } from "./day.js";
 import { fullReset } from "./night.js";
 import {
@@ -60,6 +60,10 @@ document.getElementById("btnUpgradeCarry").addEventListener("click", function() 
 
 document.getElementById("btnUpgradeZone").addEventListener("click", function() {
   upgradeZone();
+});
+
+document.getElementById("btnUpgradeCrystal").addEventListener("click", function() {
+  upgradeCrystal();
 });
 
 // ─────────────────── Save / Load ─────────────────────
@@ -130,6 +134,9 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
       if (data.gameConfig.plantUpgradeCostMult !== undefined) gameConfig.plantUpgradeCostMult = data.gameConfig.plantUpgradeCostMult;
       if (data.gameConfig.plantUpgradeStatMult !== undefined) gameConfig.plantUpgradeStatMult = data.gameConfig.plantUpgradeStatMult;
+      if (data.gameConfig.crystalBaseHp !== undefined) gameConfig.crystalBaseHp = data.gameConfig.crystalBaseHp;
+      if (Array.isArray(data.gameConfig.crystalUpgradeCost)) gameConfig.crystalUpgradeCost = data.gameConfig.crystalUpgradeCost;
+      if (data.gameConfig.crystalUpgradeHpMult !== undefined) gameConfig.crystalUpgradeHpMult = data.gameConfig.crystalUpgradeHpMult;
       sanitizeGameConfig(gameConfig);
       renderGameConfig();
     }
@@ -198,6 +205,9 @@ function loadAllConfig(data) {
     if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
     if (data.gameConfig.plantUpgradeCostMult !== undefined) gameConfig.plantUpgradeCostMult = data.gameConfig.plantUpgradeCostMult;
     if (data.gameConfig.plantUpgradeStatMult !== undefined) gameConfig.plantUpgradeStatMult = data.gameConfig.plantUpgradeStatMult;
+    if (data.gameConfig.crystalBaseHp !== undefined) gameConfig.crystalBaseHp = data.gameConfig.crystalBaseHp;
+    if (Array.isArray(data.gameConfig.crystalUpgradeCost)) gameConfig.crystalUpgradeCost = data.gameConfig.crystalUpgradeCost;
+    if (data.gameConfig.crystalUpgradeHpMult !== undefined) gameConfig.crystalUpgradeHpMult = data.gameConfig.crystalUpgradeHpMult;
     sanitizeGameConfig(gameConfig);
     renderGameConfig();
   }

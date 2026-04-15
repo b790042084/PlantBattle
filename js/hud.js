@@ -688,6 +688,24 @@ export function upgradeZone() {
   updateHUD();
 }
 
+export function upgradeCrystal() {
+  const cost = getCrystalUpgradeCost();
+  if (cost < 0) { addLog("水晶已达最大等级！", "dodge"); return; }
+  if (gs.gold < cost) { addLog("金钱不足！需要 " + cost + " 金钱", "dodge"); return; }
+  gs.gold -= cost;
+  gs.crystal.level += 1;
+  const crystalMult = Math.pow(gameConfig.crystalUpgradeHpMult, gs.crystal.level);
+  const newMaxHp = Math.floor(gameConfig.crystalBaseHp * crystalMult);
+  addLog("💎 水晶升级到 Lv." + gs.crystal.level + "！最大生命值：" + newMaxHp, "end");
+  updateHUD();
+}
+
+function getCrystalUpgradeCost() {
+  const costs = gameConfig.crystalUpgradeCost || [100, 200, 350, 550, 800];
+  if (gs.crystal.level >= costs.length) return -1;
+  return costs[gs.crystal.level];
+}
+
 export function upgradePlantInBackpack(backpackId) {
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === backpackId; });
   if (bpIdx === -1) { addLog("找不到该植物！", "dodge"); return; }
@@ -746,6 +764,17 @@ export function updateShopDisplay() {
   const zc = getZoneUpgradeCost();
   if (zoneCost) zoneCost.textContent = zc >= 0 ? zc : "MAX";
   if (zoneBtn) zoneBtn.disabled = zc < 0 || gs.gold < zc;
+
+  // Crystal upgrade
+  const crystalLvl = document.getElementById("crystalLevelDisplay");
+  const crystalCost = document.getElementById("crystalCostDisplay");
+  const crystalBtn = document.getElementById("btnUpgradeCrystal");
+  const crystalMult = Math.pow(gameConfig.crystalUpgradeHpMult, gs.crystal.level);
+  const crystalMaxHp = Math.floor(gameConfig.crystalBaseHp * crystalMult);
+  if (crystalLvl) crystalLvl.textContent = "等级 " + gs.crystal.level + " · 生命值 " + crystalMaxHp;
+  const crystalC = getCrystalUpgradeCost();
+  if (crystalCost) crystalCost.textContent = crystalC >= 0 ? crystalC : "MAX";
+  if (crystalBtn) crystalBtn.disabled = crystalC < 0 || gs.gold < crystalC;
 
   // Plant upgrades in backpack
   if (elShopPlantUpgrades) {
