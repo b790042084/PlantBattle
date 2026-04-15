@@ -96,10 +96,10 @@ export function renderGrid() {
     const el    = elPlantingGrid.children[i];
     if (!el) continue;
     const plant = gs.grid[i];
-    const canHL = gs.selectedId !== null && !plant && gs.phase === "dusk";
+    const canHL = gs.selectedId !== null && !plant;
     // Check if we can feed (selected same-type plant to an existing plant)
     let canFeed = false;
-    if (plant && gs.selectedId !== null && gs.phase === "dusk") {
+    if (plant && gs.selectedId !== null) {
       const selItem = gs.backpack.find(function(b) { return b.id === gs.selectedId; });
       if (selItem && selItem.plantIdx === plant.plantIdx &&
           (plant.stage || 1) < PLANT_STAGES && !plant.isBreakingThrough) {
@@ -175,56 +175,54 @@ export function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
-    if (gs.phase === "dusk") {
-      // If we have a selected backpack item of the SAME type → feed for breakthrough EXP
-      if (gs.selectedId !== null) {
-        const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
-        if (bpIdx !== -1) {
-          const feedItem = gs.backpack[bpIdx];
-          if (feedItem.plantIdx === plant.plantIdx) {
-            // Same plant type → feed
-            const currentStage = plant.stage || 1;
-            if (currentStage >= PLANT_STAGES) {
-              addLog(plant.name + " 已经是完全体，无法继续喂养！", "dodge");
-              return;
-            }
-            if (plant.isBreakingThrough) {
-              addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
-              return;
-            }
-            const expNeeded = getBreakthroughExp()[currentStage - 1] || 3;
-            plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
-
-            // Consume the fed plant from backpack
-            gs.backpack.splice(bpIdx, 1);
-            gs.selectedId = null;
-
-            if (plant.breakthroughExp >= expNeeded) {
-              // EXP full → start breakthrough timer
-              plant.isBreakingThrough = true;
-              plant.breakthroughTimer = getBreakthroughTime();
-              // Stage advances now but stats remain at old stage until breakthrough completes
-              plant.stage = currentStage + 1;
-              addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
-            } else {
-              addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
-            }
-            renderBackpack();
-            renderGrid();
+    // If we have a selected backpack item of the SAME type → feed for breakthrough EXP
+    if (gs.selectedId !== null) {
+      const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
+      if (bpIdx !== -1) {
+        const feedItem = gs.backpack[bpIdx];
+        if (feedItem.plantIdx === plant.plantIdx) {
+          // Same plant type → feed
+          const currentStage = plant.stage || 1;
+          if (currentStage >= PLANT_STAGES) {
+            addLog(plant.name + " 已经是完全体，无法继续喂养！", "dodge");
             return;
           }
+          if (plant.isBreakingThrough) {
+            addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
+            return;
+          }
+          const expNeeded = getBreakthroughExp()[currentStage - 1] || 3;
+          plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
+
+          // Consume the fed plant from backpack
+          gs.backpack.splice(bpIdx, 1);
+          gs.selectedId = null;
+
+          if (plant.breakthroughExp >= expNeeded) {
+            // EXP full → start breakthrough timer
+            plant.isBreakingThrough = true;
+            plant.breakthroughTimer = getBreakthroughTime();
+            // Stage advances now but stats remain at old stage until breakthrough completes
+            plant.stage = currentStage + 1;
+            addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
+          } else {
+            addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
+          }
+          renderBackpack();
+          renderGrid();
+          return;
         }
       }
-      // Otherwise: pick up the plant back to backpack
-      gs.grid[idx] = null;
-      gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
-      addLog(plant.name + " 已取回到背包", "dodge");
-      renderBackpack();
-      renderGrid();
     }
+    // Otherwise: pick up the plant back to backpack
+    gs.grid[idx] = null;
+    gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
+    addLog(plant.name + " 已取回到背包", "dodge");
+    renderBackpack();
+    renderGrid();
     return;
   }
-  if (gs.phase !== "dusk" || !gs.selectedId) return;
+  if (!gs.selectedId) return;
 
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
   if (bpIdx === -1) { gs.selectedId = null; renderBackpack(); return; }
