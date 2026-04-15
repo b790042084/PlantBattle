@@ -18,10 +18,38 @@ import {
 // ─────────────────── Show app version ────────────────
 if (elVersion) elVersion.textContent = APP_VERSION;
 
+// ─────────────────── View Navigation ─────────────────
+var elGameView   = document.getElementById("gameView");
+var elConfigView = document.getElementById("configView");
+var elLogView    = document.getElementById("logView");
+
+function showView(view) {
+  elGameView.style.display   = view === "game"   ? "" : "none";
+  elConfigView.style.display = view === "config" ? "" : "none";
+  elLogView.style.display    = view === "log"    ? "" : "none";
+}
+
+document.getElementById("btnGoConfig").addEventListener("click", function() { showView("config"); });
+document.getElementById("btnGoLog").addEventListener("click", function() { showView("log"); });
+document.getElementById("btnBackFromConfig").addEventListener("click", function() { showView("game"); });
+document.getElementById("btnBackFromLog").addEventListener("click", function() { showView("game"); });
+
+// ─────────────────── Backpack Modal ──────────────────
+var elBackpackModal = document.getElementById("backpackModal");
+document.getElementById("btnBackpack").addEventListener("click", function() {
+  elBackpackModal.style.display = elBackpackModal.style.display === "none" ? "" : "none";
+});
+document.getElementById("btnCloseBackpack").addEventListener("click", function() {
+  elBackpackModal.style.display = "none";
+});
+elBackpackModal.addEventListener("click", function(e) {
+  if (e.target === elBackpackModal) elBackpackModal.style.display = "none";
+});
+
 // ─────────────────── Top-level button handlers ───────
 document.getElementById("btnStart").addEventListener("click", function() {
   if (gs.phase !== "idle" && gs.phase !== "gameover" && gs.phase !== "victory") return;
-  if (waveList.length === 0) { addLog("请先在「每波怪物配置」中添加至少一波！", "dodge"); return; }
+  if (waveList.length === 0) { addLog("请先在「每关怪物配置」中添加至少一关！", "dodge"); return; }
   fullReset();
   gs.round = 1;
   startDay();
@@ -30,7 +58,7 @@ document.getElementById("btnStart").addEventListener("click", function() {
 document.getElementById("btnReset").addEventListener("click", function() {
   fullReset();
   elLog.innerHTML = "";
-  addLog("游戏已重置。点击「开始游戏」进入第一回合！", "round");
+  addLog("游戏已重置。点击「开始游戏」进入第一关！", "round");
 });
 
 document.getElementById("btnClearLog").addEventListener("click", function() {
@@ -57,7 +85,7 @@ document.getElementById("btnSaveConfig").addEventListener("click", function() {
       waveList:          waveList,
       gameConfig:        gameConfig
     }));
-    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次配置 & 游戏基础配置已保存到本地浏览器。", "end");
+    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 关卡配置 & 游戏基础配置已保存到本地浏览器。", "end");
   } catch(e) {
     addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
@@ -108,6 +136,7 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       gameConfig.nightDuration = data.gameConfig.nightDuration;
       gameConfig.initialLives  = data.gameConfig.initialLives;
       if (data.gameConfig.zoneBaseSlots !== undefined) gameConfig.zoneBaseSlots = data.gameConfig.zoneBaseSlots;
+      if (Array.isArray(data.gameConfig.initialUnlockedSlots)) gameConfig.initialUnlockedSlots = data.gameConfig.initialUnlockedSlots;
       if (Array.isArray(data.gameConfig.breakthroughExp)) gameConfig.breakthroughExp = data.gameConfig.breakthroughExp;
       if (data.gameConfig.breakthroughTime !== undefined) gameConfig.breakthroughTime = data.gameConfig.breakthroughTime;
       if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
@@ -175,6 +204,7 @@ function loadAllConfig(data) {
     gameConfig.nightDuration = data.gameConfig.nightDuration;
     gameConfig.initialLives  = data.gameConfig.initialLives;
     if (data.gameConfig.zoneBaseSlots !== undefined) gameConfig.zoneBaseSlots = data.gameConfig.zoneBaseSlots;
+    if (Array.isArray(data.gameConfig.initialUnlockedSlots)) gameConfig.initialUnlockedSlots = data.gameConfig.initialUnlockedSlots;
     if (Array.isArray(data.gameConfig.breakthroughExp)) gameConfig.breakthroughExp = data.gameConfig.breakthroughExp;
     if (data.gameConfig.breakthroughTime !== undefined) gameConfig.breakthroughTime = data.gameConfig.breakthroughTime;
     if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
@@ -235,7 +265,7 @@ document.getElementById("btnAddRoundWave").addEventListener("click", function() 
   if (elRoundConfigBody && elRoundConfigBody.style.display === "none") {
     elRoundConfigBody.style.display = "";
   }
-  addLog("已添加第 " + waveList.length + " 波，请配置怪物数量后保存。", "end");
+  addLog("已添加第 " + waveList.length + " 关，请配置怪物数量后保存。", "end");
 });
 
 // ─────────────────── Boot ────────────────────────────
@@ -262,7 +292,7 @@ function initializeGame() {
   initGrid();
   renderBackpack();
   updateHUD();
-  addLog("欢迎来到植物战队！点击「开始游戏」进入第一回合。", "round");
+  addLog("欢迎来到植物战队！点击「开始游戏」进入第一关。", "round");
   console.log("[INIT] 游戏初始化完成");
 }
 

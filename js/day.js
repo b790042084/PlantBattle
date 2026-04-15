@@ -122,20 +122,36 @@ function checkWaveCollisions() {
     if (distance < COLLISION_TOLERANCE) {
       // Hit by wave - reset to bottom and grant 1.5s of immunity
       // Drop all carried plants when hit by wave
-      if (gs.carried.length > 0) {
-        addLog("被海浪击中！携带的植物掉落了！", "crit");
+      var lostCount = gs.carried.length;
+      var lostNames = gs.carried.map(function(c) { return plantLibrary[c.plantIdx].name; });
+      if (lostCount > 0) {
         gs.carried = [];
         renderCarriedPlants();
+        addLog("🌊 被海浪击中！丢失了 " + lostCount + " 个植物（" + lostNames.join("、") + "），已回到起点！", "crit");
+      } else {
+        addLog("🌊 被海浪击中！已回到起点！", "crit");
       }
       gs.player.x = 50;
       gs.player.row = SPAWN_ROW;  // Reset to spawn zone
       gs.player.y = 95;    // Bottom position
       gs.waveHitCooldown = performance.now() + 1500;
       updatePlayerPosition();
-      addLog("被海浪击中！回到出生区 (海浪Y:" + wave.y.toFixed(1) + "% 玩家Y:" + playerY.toFixed(1) + "%)", "dodge");
+      // Show floating text warning on screen
+      showWaveHitWarning(lostCount);
       break;
     }
   }
+}
+
+// Show a floating text warning when hit by wave
+function showWaveHitWarning(lostCount) {
+  var warn = document.createElement("div");
+  warn.className = "wave-hit-warning";
+  warn.textContent = lostCount > 0
+    ? "🌊 被海浪击中！丢失了 " + lostCount + " 个植物！"
+    : "🌊 被海浪击中！回到起点！";
+  elCollect.appendChild(warn);
+  setTimeout(function() { warn.remove(); }, 2000);
 }
 
 function checkPlantCollisions() {
@@ -255,8 +271,7 @@ export function startDay() {
   gs.player.isJumping = false;
 
   // Restore all plants to full HP and wake dormant plants
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < SLOTS; i++) {
     const plant = gs.grid[i];
     if (!plant) continue;
     plant.hp = plant.maxHp;
@@ -319,7 +334,7 @@ export function startDay() {
   addLog("[PLANT] 植物刷新配置: " + gs.currentPlantSpawnConfig.name + " (" + gs.currentPlantSpawnConfig.spawnInterval + "ms)", "end");
 
   updateHUD();
-  addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + gameConfig.dayDuration + " 秒收集时间 ════", "round");
+  addLog("════ 第 " + gs.round + " 关 — 白天开始！" + gameConfig.dayDuration + " 秒收集时间 ════", "round");
 
   gs.phaseHandle = setInterval(function() {
     gs.phaseLeft -= 1;

@@ -68,11 +68,18 @@ export function sanitizePlantSpawn(p) {
 plantSpawnConfigs.forEach(sanitizePlantSpawn);
 
 // ─────────────────── Wave List Config ────────────────
-// waveList[i] = array of { monsterIdx, count } for wave i+1
+// waveList[i] = array of { monsterIdx, count } for level i+1
 export const waveList = [
+  [{ monsterIdx: 0, count: 3 }],
   [{ monsterIdx: 0, count: 5 }],
   [{ monsterIdx: 0, count: 4 }, { monsterIdx: 1, count: 2 }],
-  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 2, count: 2 }, { monsterIdx: 3, count: 1 }],
+  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 1, count: 3 }],
+  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 1, count: 2 }, { monsterIdx: 2, count: 1 }],
+  [{ monsterIdx: 0, count: 2 }, { monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 2 }],
+  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 1 }],
+  [{ monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 2 }],
+  [{ monsterIdx: 0, count: 2 }, { monsterIdx: 1, count: 2 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 2 }],
+  [{ monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 3 }],
 ];
 
 export function sanitizeWaveEntry(entry) {
@@ -86,7 +93,8 @@ export const gameConfig = {
   duskDuration: 15,
   nightDuration: 0,
   initialLives: 5,
-  zoneBaseSlots: 6,
+  zoneBaseSlots: 2,
+  initialUnlockedSlots: [2, 7],
   breakthroughExp: [3, 4, 5],
   breakthroughTime: 10,
   plantUpgradeCostBase: 30,
@@ -99,7 +107,15 @@ export function sanitizeGameConfig(c) {
   c.duskDuration  = Math.max(5,  Math.floor(toNum(c.duskDuration,  15)));
   c.nightDuration = Math.max(0,  Math.floor(toNum(c.nightDuration,  0)));
   c.initialLives  = Math.max(1,  Math.floor(toNum(c.initialLives,   5)));
-  c.zoneBaseSlots = Math.max(1,  Math.floor(toNum(c.zoneBaseSlots,  6)));
+  c.zoneBaseSlots = Math.max(1,  Math.floor(toNum(c.zoneBaseSlots,  2)));
+  if (!Array.isArray(c.initialUnlockedSlots) || c.initialUnlockedSlots.length === 0) {
+    c.initialUnlockedSlots = [2, 7];
+  } else {
+    c.initialUnlockedSlots = c.initialUnlockedSlots
+      .map(function(v) { return Math.max(0, Math.min(SLOTS - 1, Math.floor(toNum(v, 0)))); })
+      .filter(function(v, i, arr) { return arr.indexOf(v) === i; });
+    if (c.initialUnlockedSlots.length === 0) c.initialUnlockedSlots = [2, 7];
+  }
   if (!Array.isArray(c.breakthroughExp) || c.breakthroughExp.length === 0) {
     c.breakthroughExp = [3, 4, 5];
   } else {

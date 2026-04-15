@@ -477,9 +477,9 @@ export function renderRoundConfig() {
   waveList.forEach(function(waveDef, waveIdx) {
     html += '<div class="wl-wave-item" data-wave="' + waveIdx + '">';
     html += '<div class="wl-wave-header">';
-    html += '<span class="wl-wave-title">第 ' + (waveIdx + 1) + ' 波</span>';
+    html += '<span class="wl-wave-title">第 ' + (waveIdx + 1) + ' 关</span>';
     if (waveList.length > 1) {
-      html += '<button class="btn-danger btn-wl-del-wave" data-wave="' + waveIdx + '">删除此波</button>';
+      html += '<button class="btn-danger btn-wl-del-wave" data-wave="' + waveIdx + '">删除此关</button>';
     }
     html += '</div>';
     html += '<div class="wl-monster-counts">';
@@ -497,7 +497,7 @@ export function renderRoundConfig() {
     });
     html += '</div>';
     html += '<div class="lib-form-actions">';
-    html += '<button class="btn-wl-save-wave" data-wave="' + waveIdx + '">保存此波</button>';
+    html += '<button class="btn-wl-save-wave" data-wave="' + waveIdx + '">保存此关</button>';
     html += '</div>';
     html += '</div>';
   });
@@ -524,16 +524,16 @@ elRoundConfigForm.addEventListener("click", function(evt) {
       if (cnt > 0) newDef.push({ monsterIdx: mIdx, count: cnt });
     });
     waveList[waveIdx] = newDef;
-    addLog("第 " + (waveIdx + 1) + " 波配置已保存。", "end");
+    addLog("第 " + (waveIdx + 1) + " 关配置已保存。", "end");
     return;
   }
 
   if (btn.classList.contains("btn-wl-del-wave")) {
     const waveIdx = parseInt(btn.dataset.wave, 10);
-    if (waveList.length <= 1) { addLog("至少需要保留 1 波配置。", "dodge"); return; }
+    if (waveList.length <= 1) { addLog("至少需要保留 1 关配置。", "dodge"); return; }
     waveList.splice(waveIdx, 1);
     renderRoundConfig();
-    addLog("已删除第 " + (waveIdx + 1) + " 波配置。", "end");
+    addLog("已删除第 " + (waveIdx + 1) + " 关配置。", "end");
     return;
   }
 });
@@ -554,8 +554,8 @@ export function renderGameConfig() {
     '<label>玩家初始生命值' +
       '<input id="gc-initialLives" type="number" min="1" step="1" value="' + gameConfig.initialLives + '">' +
     '</label>' +
-    '<label>种植区初始格子数（最少1）' +
-      '<input id="gc-zoneBaseSlots" type="number" min="1" step="1" value="' + gameConfig.zoneBaseSlots + '">' +
+    '<label>初始解锁格子（逗号分隔索引，0-9）' +
+      '<input id="gc-initialUnlockedSlots" type="text" value="' + gameConfig.initialUnlockedSlots.join(",") + '">' +
     '</label>' +
     '<label>突破所需经验（逗号分隔，对应 阶段1→2, 2→3, 3→4）' +
       '<input id="gc-breakthroughExp" type="text" value="' + gameConfig.breakthroughExp.join(",") + '">' +
@@ -581,7 +581,11 @@ export function renderGameConfig() {
     gameConfig.duskDuration  = toNum(document.getElementById("gc-duskDuration").value,  gameConfig.duskDuration);
     gameConfig.nightDuration = toNum(document.getElementById("gc-nightDuration").value, gameConfig.nightDuration);
     gameConfig.initialLives  = toNum(document.getElementById("gc-initialLives").value,  gameConfig.initialLives);
-    gameConfig.zoneBaseSlots = toNum(document.getElementById("gc-zoneBaseSlots").value,  gameConfig.zoneBaseSlots);
+    // Parse initialUnlockedSlots as comma-separated integers
+    var slotsStr = document.getElementById("gc-initialUnlockedSlots").value || "";
+    var slotsArr = slotsStr.split(",").map(function(s) { return Math.floor(toNum(s.trim(), 0)); }).filter(function(v) { return v >= 0 && v <= SLOTS - 1; });
+    if (slotsArr.length > 0) gameConfig.initialUnlockedSlots = slotsArr;
+    gameConfig.zoneBaseSlots = slotsArr.length || gameConfig.zoneBaseSlots;
     // Parse breakthroughExp as comma-separated integers
     var expStr = document.getElementById("gc-breakthroughExp").value || "";
     var expArr = expStr.split(",").map(function(s) { return Math.max(1, Math.floor(toNum(s.trim(), 3))); });
@@ -596,7 +600,7 @@ export function renderGameConfig() {
       "游戏基础配置已更新：白天 " + gameConfig.dayDuration + "s，黄昏 " + gameConfig.duskDuration + "s，夜晚限时 " +
       (gameConfig.nightDuration > 0 ? gameConfig.nightDuration + "s" : "无限制") +
       "，初始生命 " + gameConfig.initialLives +
-      "，种植区初始格子 " + gameConfig.zoneBaseSlots +
+      "，初始解锁格子 [" + gameConfig.initialUnlockedSlots.join(",") + "]" +
       "，突破经验 [" + gameConfig.breakthroughExp.join(",") + "]" +
       "，突破时间 " + gameConfig.breakthroughTime + "s" +
       "，升级基础费用 " + gameConfig.plantUpgradeCostBase +

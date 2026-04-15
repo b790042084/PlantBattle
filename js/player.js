@@ -8,6 +8,12 @@ import { addLog, renderBackpack } from "./hud.js";
 // ─────────────────── Collection Zone ─────────────────
 export let elPlayer = null;
 
+// Reference to backpack floating button for fly animation
+function getBackpackBtnRect() {
+  var btn = document.getElementById("btnBackpack");
+  return btn ? btn.getBoundingClientRect() : null;
+}
+
 export function createPlayer() {
   if (elPlayer) elPlayer.remove();
   elPlayer = document.createElement("div");
@@ -48,9 +54,9 @@ export function depositCarriedPlants() {
   gs.carried = [];
   renderCarriedPlants();
 
-  // Animate each plant flying from player to backpack
+  // Animate each plant flying from player to backpack button
   const playerRect = elPlayer ? elPlayer.getBoundingClientRect() : null;
-  const bpRect = elBackpackItems.getBoundingClientRect();
+  const bpBtnRect = getBackpackBtnRect();
 
   toDeposit.forEach(function(c, i) {
     const pDef = plantLibrary[c.plantIdx];
@@ -66,9 +72,9 @@ export function depositCarriedPlants() {
     // Start position: player head
     const startX = playerRect ? playerRect.left + playerRect.width / 2 : window.innerWidth / 2;
     const startY = playerRect ? playerRect.top : window.innerHeight / 2;
-    // End position: backpack area
-    const endX = bpRect.left + Math.min(40 + i * 50, bpRect.width - 20);
-    const endY = bpRect.top + bpRect.height / 2;
+    // End position: backpack button
+    const endX = bpBtnRect ? bpBtnRect.left + bpBtnRect.width / 2 : window.innerWidth - 40;
+    const endY = bpBtnRect ? bpBtnRect.top + bpBtnRect.height / 2 : window.innerHeight - 40;
 
     fly.style.left = startX + "px";
     fly.style.top = startY + "px";

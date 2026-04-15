@@ -42,7 +42,7 @@ function buildQueue() {
         speed:          t.speed,
         attackInterval: t.attackInterval,
         reward:         t.reward,
-        lane:           Math.floor(Math.random() * Math.min(gs.activeSlots, LANES)),
+        lane:           Math.floor(Math.random() * LANES),
         y:              0,
         eating:         false,
         eatRow:         -1,
@@ -77,7 +77,7 @@ export function startNight() {
   // Add dark fog over collection zone
   elCollect.classList.add("fog-active");
   updateHUD();
-  var nightMsg = "════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物（第 " + gs.round + " 波 / 共 " + waveList.length + " 波）";
+  var nightMsg = "════ 夜晚开始！本关共 " + gs.mQueue.length + " 只怪物（第 " + gs.round + " 关 / 共 " + waveList.length + " 关）";
   if (gameConfig.nightDuration > 0) {
     nightMsg += "，限时 " + gameConfig.nightDuration + " 秒";
     gs.nightHandle = setTimeout(endNight, gameConfig.nightDuration * 1000);
@@ -101,8 +101,8 @@ function nightLoop(ts) {
   }
 
   // Move / eat monsters
-  const activeCols = Math.min(gs.activeSlots, LANES);
-  const activeRows = Math.ceil(gs.activeSlots / activeCols);
+  const activeCols = LANES;
+  const activeRows = ROWS;
   for (let mi = 0; mi < gs.monsters.length; mi++) {
     const m = gs.monsters[mi];
     if (m.dead) continue;
@@ -184,7 +184,7 @@ function nightLoop(ts) {
 
 // ─────────────────── Spawn Monster ───────────────────
 function doSpawn(m) {
-  const activeCols = Math.min(gs.activeSlots, LANES);
+  const activeCols = LANES;
   const el = document.createElement("div");
   el.className  = "monster";
   el.dataset.id = m.id;
@@ -261,7 +261,7 @@ function monsterAttack(m, plant, ts, slotIdx) {
 
 // ─────────────────── Plant attacks monsters ──────────
 function doPlantAttacks(ts) {
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  const totalSlots = SLOTS;
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
@@ -377,8 +377,7 @@ function doPoison() {
 // ─────────────────── Gold Generation ─────────────────
 function doGoldGeneration() {
   let totalGold = 0;
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < SLOTS; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     const pDef = plantLibrary[plant.plantIdx];
@@ -396,9 +395,8 @@ function doGoldGeneration() {
 
 // ─────────────────── Breakthrough Timer ──────────────
 function doBreakthroughTick() {
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
   let changed = false;
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < SLOTS; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     if (!plant.isBreakingThrough) continue;
@@ -479,7 +477,7 @@ function victory() {
   gs.monsters = [];
   gs.phase = "victory";
   updateHUD();
-  addLog("🏆 恭喜通关！全部 " + waveList.length + " 波怪物已击败！最终分数：" + gs.score, "end");
+  addLog("🏆 恭喜通关！全部 " + waveList.length + " 关怪物已击败！最终分数：" + gs.score, "end");
 }
 
 export function endNight() {
@@ -488,7 +486,7 @@ export function endNight() {
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
   gs.mQueue   = [];
-  addLog("🎉 第 " + gs.round + " 波胜利！当前分数：" + gs.score, "end");
+  addLog("🎉 第 " + gs.round + " 关胜利！当前分数：" + gs.score, "end");
   if (gs.round >= waveList.length) {
     victory();
     return;
@@ -504,7 +502,7 @@ export function endGame() {
   if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
   gs.phase = "gameover";
   updateHUD();
-  addLog("💀 游戏结束！最终分数：" + gs.score + "，坚持了 " + gs.round + " 回合", "end");
+  addLog("💀 游戏结束！最终分数：" + gs.score + "，坚持了 " + gs.round + " 关", "end");
 }
 
 // ─────────────────── Full Reset ──────────────────────
@@ -531,8 +529,14 @@ export function fullReset() {
 
   // Reset planting zone
   gs.plantingZoneLevel = 0;
-  gs.activeSlots = getZoneBaseSlots();
+  gs.activeSlots = gameConfig.zoneBaseSlots;
   gs.grid        = Array(SLOTS).fill(null);
+  // Reset unlocked slots to initial
+  gs.unlockedSlots = Array(SLOTS).fill(false);
+  (gameConfig.initialUnlockedSlots || [2, 7]).forEach(function(idx) {
+    if (idx >= 0 && idx < SLOTS) gs.unlockedSlots[idx] = true;
+  });
+  gs.slotUnlockCredits = 0;
 
   gs.monsters    = [];
   gs.mQueue      = [];

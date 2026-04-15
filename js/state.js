@@ -2,6 +2,15 @@
 
 import { SLOTS, PLAYER_BASE_CARRY, gameConfig } from "./config.js";
 
+// ─────────────────── Helper: build initial unlocked array ─
+function buildUnlockedSlots() {
+  var arr = Array(SLOTS).fill(false);
+  (gameConfig.initialUnlockedSlots || [2, 7]).forEach(function(idx) {
+    if (idx >= 0 && idx < SLOTS) arr[idx] = true;
+  });
+  return arr;
+}
+
 // ─────────────────── DOM refs ─────────────────────────
 export const elLog           = document.getElementById("log");
 export const elPhaseChip     = document.getElementById("phaseChip");
@@ -99,6 +108,8 @@ export const gs = {
   // Planting zone upgrades
   plantingZoneLevel: 0,
   activeSlots: gameConfig.zoneBaseSlots,
+  unlockedSlots: buildUnlockedSlots(),
+  slotUnlockCredits: 0,
 };
 
 // ─────────────────── Keyboard Controls ───────────────
