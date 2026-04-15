@@ -87,6 +87,11 @@ export function sanitizeWaveEntry(entry) {
   entry.count      = Math.max(0, Math.floor(toNum(entry.count, 0)));
 }
 
+// ─────────────────── Game Constants (must be before gameConfig sanitize) ──
+export const LANES             = 5;
+export const ROWS              = 2;
+export const SLOTS             = LANES * ROWS;
+
 // ─────────────────── Game Config ─────────────────────
 export const gameConfig = {
   dayDuration: 30,
@@ -129,10 +134,7 @@ export function sanitizeGameConfig(c) {
 }
 sanitizeGameConfig(gameConfig);
 
-// ─────────────────── Game Constants ───────────────────
-export const LANES             = 5;
-export const ROWS              = 2;
-export const SLOTS             = LANES * ROWS;
+// ─────────────────── More Game Constants ──────────────
 export const SPAWN_INTERVAL    = 5500;
 export const MAX_SPAWNED       = 5;
 export const COMBAT_TICK       = 900;
