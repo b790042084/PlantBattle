@@ -104,6 +104,7 @@ export function sanitizeGameConfig(c) {
     c.breakthroughExp = [3, 4, 5];
   } else {
     c.breakthroughExp = c.breakthroughExp.map(function(v) { return Math.max(1, Math.floor(toNum(v, 3))); });
+    if (c.breakthroughExp.length === 0) c.breakthroughExp = [3, 4, 5];
   }
   c.breakthroughTime    = Math.max(1,    Math.floor(toNum(c.breakthroughTime,    10)));
   c.plantUpgradeCostBase = Math.max(1,   Math.floor(toNum(c.plantUpgradeCostBase, 30)));

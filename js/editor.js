@@ -584,7 +584,7 @@ export function renderGameConfig() {
     gameConfig.zoneBaseSlots = toNum(document.getElementById("gc-zoneBaseSlots").value,  gameConfig.zoneBaseSlots);
     // Parse breakthroughExp as comma-separated integers
     var expStr = document.getElementById("gc-breakthroughExp").value || "";
-    var expArr = expStr.split(",").map(function(s) { return Math.max(1, Math.floor(toNum(s.trim(), 3))); }).filter(function(v) { return !isNaN(v); });
+    var expArr = expStr.split(",").map(function(s) { return Math.max(1, Math.floor(toNum(s.trim(), 3))); });
     if (expArr.length > 0) gameConfig.breakthroughExp = expArr;
     gameConfig.breakthroughTime    = toNum(document.getElementById("gc-breakthroughTime").value,    gameConfig.breakthroughTime);
     gameConfig.plantUpgradeCostBase = toNum(document.getElementById("gc-plantUpgradeCostBase").value, gameConfig.plantUpgradeCostBase);
