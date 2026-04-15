@@ -1,6 +1,6 @@
 // state.js — 全局 DOM 引用与游戏状态
 
-import { SLOTS, PLAYER_BASE_CARRY, ZONE_BASE_SLOTS } from "./config.js";
+import { SLOTS, PLAYER_BASE_CARRY, gameConfig } from "./config.js";
 
 // ─────────────────── DOM refs ─────────────────────────
 export const elLog           = document.getElementById("log");
@@ -98,7 +98,7 @@ export const gs = {
 
   // Planting zone upgrades
   plantingZoneLevel: 0,
-  activeSlots: ZONE_BASE_SLOTS,
+  activeSlots: gameConfig.zoneBaseSlots,
 };
 
 // ─────────────────── Keyboard Controls ───────────────

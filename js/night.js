@@ -8,11 +8,11 @@ import {
   DEFENSE_REDUCTION, POISON_DMG_MULTIPLIER, POISON_DURATION_BONUS,
   SLOW_DURATION_MS, SHIELD_GAIN_MULTIPLIER,
   STAGE_RATIOS, PLANT_STAGES, STAGE_NAMES,
-  BREAKTHROUGH_EXP, BREAKTHROUGH_TIME,
-  PLANT_UPGRADE_STAT_MULT,
+  getPlantUpgradeStatMult,
+  getZoneBaseSlots,
   ATTACK_RANGE,
   gameConfig, plantLibrary,
-  PLAYER_BASE_CARRY, ZONE_BASE_SLOTS,
+  PLAYER_BASE_CARRY,
 } from "./config.js";
 import { gs, elCollect, elCollectHint, elBattleArea, elPlantingGrid } from "./state.js";
 import { uid, escHtml } from "./utils.js";
@@ -417,7 +417,7 @@ function doBreakthroughTick() {
       const newStageIdx = (plant.stage || 1) - 1;
       const newRatio = STAGE_RATIOS[newStageIdx] || 1;
       const pDef = plantLibrary[plant.plantIdx];
-      const levelMult = 1 + (plant.plantLevel || 0) * PLANT_UPGRADE_STAT_MULT;
+      const levelMult = 1 + (plant.plantLevel || 0) * getPlantUpgradeStatMult();
 
       // Apply new stage stats
       const newMaxHp = Math.floor(pDef.hp * newRatio * levelMult);
@@ -535,7 +535,7 @@ export function fullReset() {
 
   // Reset planting zone
   gs.plantingZoneLevel = 0;
-  gs.activeSlots = ZONE_BASE_SLOTS;
+  gs.activeSlots = getZoneBaseSlots();
   gs.grid        = Array(SLOTS).fill(null);
 
   gs.monsters    = [];

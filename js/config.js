@@ -81,13 +81,35 @@ export function sanitizeWaveEntry(entry) {
 }
 
 // ─────────────────── Game Config ─────────────────────
-export const gameConfig = { dayDuration: 30, duskDuration: 15, nightDuration: 0, initialLives: 5 };
+export const gameConfig = {
+  dayDuration: 30,
+  duskDuration: 15,
+  nightDuration: 0,
+  initialLives: 5,
+  zoneBaseSlots: 6,
+  breakthroughExp: [3, 4, 5],
+  breakthroughTime: 10,
+  plantUpgradeCostBase: 30,
+  plantUpgradeCostMult: 1.5,
+  plantUpgradeStatMult: 0.15,
+};
 
 export function sanitizeGameConfig(c) {
   c.dayDuration   = Math.max(5,  Math.floor(toNum(c.dayDuration,   30)));
   c.duskDuration  = Math.max(5,  Math.floor(toNum(c.duskDuration,  15)));
   c.nightDuration = Math.max(0,  Math.floor(toNum(c.nightDuration,  0)));
   c.initialLives  = Math.max(1,  Math.floor(toNum(c.initialLives,   5)));
+  c.zoneBaseSlots = Math.max(1,  Math.floor(toNum(c.zoneBaseSlots,  6)));
+  if (!Array.isArray(c.breakthroughExp) || c.breakthroughExp.length === 0) {
+    c.breakthroughExp = [3, 4, 5];
+  } else {
+    c.breakthroughExp = c.breakthroughExp.map(function(v) { return Math.max(1, Math.floor(toNum(v, 3))); });
+    if (c.breakthroughExp.length === 0) c.breakthroughExp = [3, 4, 5];
+  }
+  c.breakthroughTime    = Math.max(1,    Math.floor(toNum(c.breakthroughTime,    10)));
+  c.plantUpgradeCostBase = Math.max(1,   Math.floor(toNum(c.plantUpgradeCostBase, 30)));
+  c.plantUpgradeCostMult = Math.max(1.0, toNum(c.plantUpgradeCostMult, 1.5));
+  c.plantUpgradeStatMult = Math.max(0.01, toNum(c.plantUpgradeStatMult, 0.15));
 }
 sanitizeGameConfig(gameConfig);
 
@@ -128,20 +150,21 @@ export const STAGE_NAMES       = ["幼苗", "成长", "成熟", "完全体"];
 export const GOLD_TICK_MS      = 1000;        // Gold generation interval (ms)
 
 // Breakthrough: feed same-type plants to gain EXP, then wait for breakthrough
-export const BREAKTHROUGH_EXP  = [3, 4, 5];  // EXP needed for stage 1→2, 2→3, 3→4
-export const BREAKTHROUGH_TIME = 10;          // Seconds to complete breakthrough once EXP is full
+// These now read from gameConfig for runtime configurability
+export function getBreakthroughExp() { return gameConfig.breakthroughExp; }
+export function getBreakthroughTime() { return gameConfig.breakthroughTime; }
 
 export const PLAYER_BASE_CARRY   = 3;         // Default max carry capacity
 export const CARRY_UPGRADE_COST  = [50, 120, 200, 300, 500]; // Cost per carry upgrade level
 export const CARRY_UPGRADE_BONUS = 1;         // +1 carry per upgrade
 
-export const ZONE_BASE_SLOTS        = 6;      // Starting planting slots
+export function getZoneBaseSlots() { return gameConfig.zoneBaseSlots; }
 export const ZONE_UPGRADE_COST      = [80, 150, 250, 400]; // Cost per zone level
 export const ZONE_UPGRADE_SLOTS     = 1;      // +1 slot per zone level
 
-export const PLANT_UPGRADE_COST_BASE = 30;    // Base cost to upgrade plant level
-export const PLANT_UPGRADE_COST_MULT = 1.5;   // Cost multiplier per level
-export const PLANT_UPGRADE_STAT_MULT = 0.15;  // +15% stats per plant level
+export function getPlantUpgradeCostBase() { return gameConfig.plantUpgradeCostBase; }
+export function getPlantUpgradeCostMult() { return gameConfig.plantUpgradeCostMult; }
+export function getPlantUpgradeStatMult() { return gameConfig.plantUpgradeStatMult; }
 
 // ─────────────────── Attack Range per Mode ───────────
 // Distance is Euclidean: sqrt((lane_diff)² + (y_diff)²)

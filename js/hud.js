@@ -3,10 +3,12 @@
 import {
   LANES, SLOTS, plantLibrary,
   STAGE_NAMES, STAGE_RATIOS, PLANT_STAGES,
-  BREAKTHROUGH_EXP, BREAKTHROUGH_TIME,
   PLAYER_BASE_CARRY, CARRY_UPGRADE_COST, CARRY_UPGRADE_BONUS,
-  ZONE_BASE_SLOTS, ZONE_UPGRADE_COST, ZONE_UPGRADE_SLOTS,
-  PLANT_UPGRADE_COST_BASE, PLANT_UPGRADE_COST_MULT, PLANT_UPGRADE_STAT_MULT,
+  ZONE_UPGRADE_COST, ZONE_UPGRADE_SLOTS,
+  gameConfig,
+  getBreakthroughExp, getBreakthroughTime,
+  getPlantUpgradeCostBase, getPlantUpgradeCostMult, getPlantUpgradeStatMult,
+  getZoneBaseSlots,
 } from "./config.js";
 import { gs } from "./state.js";
 import {
@@ -144,7 +146,7 @@ export function renderGrid() {
         breakthroughBadge = '<div class="slot-bt-badge bt-active">⏳突破 ' + (plant.breakthroughTimer || 0) + 's</div>';
       } else if (currentStage < PLANT_STAGES) {
         // Show EXP progress
-        const expNeeded = BREAKTHROUGH_EXP[currentStage - 1] || 3;
+        const expNeeded = getBreakthroughExp()[currentStage - 1] || 3;
         const exp = plant.breakthroughExp || 0;
         breakthroughBadge = '<div class="slot-bt-badge">' +
           '<div class="slot-bt-bar"><div class="slot-bt-fill" style="width:' + (exp / expNeeded * 100) + '%"></div></div>' +
@@ -190,7 +192,7 @@ export function onSlotClick(e) {
               addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
               return;
             }
-            const expNeeded = BREAKTHROUGH_EXP[currentStage - 1] || 3;
+            const expNeeded = getBreakthroughExp()[currentStage - 1] || 3;
             plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
 
             // Consume the fed plant from backpack
@@ -200,10 +202,10 @@ export function onSlotClick(e) {
             if (plant.breakthroughExp >= expNeeded) {
               // EXP full → start breakthrough timer
               plant.isBreakingThrough = true;
-              plant.breakthroughTimer = BREAKTHROUGH_TIME;
+              plant.breakthroughTimer = getBreakthroughTime();
               // Stage advances now but stats remain at old stage until breakthrough completes
               plant.stage = currentStage + 1;
-              addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + BREAKTHROUGH_TIME + "秒）…", "end");
+              addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
             } else {
               addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
             }
@@ -235,7 +237,7 @@ export function onSlotClick(e) {
   const stage = item.stage || 1;
   const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
   const plantLevel = item.plantLevel || 0;
-  const levelMult = 1 + plantLevel * PLANT_UPGRADE_STAT_MULT;
+  const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
   const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
   const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
   const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
@@ -288,7 +290,7 @@ export function renderBackpack() {
 
     // Plant level info
     const plantLevel = item.plantLevel || 0;
-    const levelMult = 1 + plantLevel * PLANT_UPGRADE_STAT_MULT;
+    const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
 
     const effectiveHp  = Math.floor(p.hp  * stageRatio * levelMult);
     const effectiveAtk = Math.floor(p.atk * stageRatio * levelMult);
@@ -330,7 +332,7 @@ export function getZoneUpgradeCost() {
 }
 
 export function getPlantUpgradeCost(plantLevel) {
-  return Math.floor(PLANT_UPGRADE_COST_BASE * Math.pow(PLANT_UPGRADE_COST_MULT, plantLevel || 0));
+  return Math.floor(getPlantUpgradeCostBase() * Math.pow(getPlantUpgradeCostMult(), plantLevel || 0));
 }
 
 export function upgradeCarry() {
@@ -350,7 +352,7 @@ export function upgradeZone() {
   if (gs.gold < cost) { addLog("金钱不足！需要 " + cost + " 金钱", "dodge"); return; }
   gs.gold -= cost;
   gs.plantingZoneLevel += 1;
-  gs.activeSlots = Math.min(ZONE_BASE_SLOTS + gs.plantingZoneLevel * ZONE_UPGRADE_SLOTS, SLOTS);
+  gs.activeSlots = Math.min(getZoneBaseSlots() + gs.plantingZoneLevel * ZONE_UPGRADE_SLOTS, SLOTS);
   // Resize grid array if needed
   while (gs.grid.length < gs.activeSlots) gs.grid.push(null);
   addLog("种植区升级！当前格子数：" + gs.activeSlots, "end");
@@ -409,7 +411,7 @@ export function updateShopDisplay() {
           '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
           '<div class="shop-plant-info">' +
             '<div class="shop-plant-name">' + escHtml(p.name) + ' (' + stageName + ')' + (lvl > 0 ? ' Lv.' + lvl : '') + '</div>' +
-            '<div class="shop-plant-stats">HP+' + Math.round(PLANT_UPGRADE_STAT_MULT*100) + '% ATK+' + Math.round(PLANT_UPGRADE_STAT_MULT*100) + '% DEF+' + Math.round(PLANT_UPGRADE_STAT_MULT*100) + '%</div>' +
+            '<div class="shop-plant-stats">HP+' + Math.round(getPlantUpgradeStatMult()*100) + '% ATK+' + Math.round(getPlantUpgradeStatMult()*100) + '% DEF+' + Math.round(getPlantUpgradeStatMult()*100) + '%</div>' +
           '</div>' +
           '<button class="shop-buy-btn btn-upgrade-plant" data-bp-id="' + item.id + '"' + (canBuy ? '' : ' disabled') + '>升级 ' + cost + '💰</button>' +
         '</div>';
