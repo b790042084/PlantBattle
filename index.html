@@ -127,7 +127,7 @@
         <div class="library-panel-body" id="roundConfigBody" style="display:none">
           <p class="panel-tip">在此配置每一波夜晚阶段出现的僵尸种类与数量。通过全部波次后即赢得胜利！</p>
           <div class="library-header">
-            <button id="btnAddWave" class="ghost">＋ 添加波次</button>
+            <button id="btnAddRoundWave" class="ghost">＋ 添加波次</button>
           </div>
           <div id="roundConfigForm" class="round-config-form library-list"></div>
         </div>
@@ -154,16 +154,6 @@
       </section>
 
     </main>
-    <script src="app.js"></script>
-    <script>
-      // 确保在 DOM 完全加载后初始化
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
-          console.log('[INIT] DOM 已加载');
-        });
-      } else {
-        console.log('[INIT] DOM 已就绪');
-      }
-    </script>
+    <script type="module" src="js/main.js"></script>
   </body>
 </html>
