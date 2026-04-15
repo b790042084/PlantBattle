@@ -528,7 +528,8 @@ function onSlotDrop(e) {
         attackInterval: baseInterval,
         stage:          stage,
         plantLevel:     plantLevel,
-        breakthroughExp:   item.breakthroughExp || 0,        isBreakingThrough: false,
+        breakthroughExp:   item.breakthroughExp || 0,
+        isBreakingThrough: false,
         breakthroughTimer: 0,
       });
       gs.selectedId = null;
