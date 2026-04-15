@@ -299,7 +299,7 @@ export function startDay() {
   // Select plant spawn config for this day and start spawning
   gs.currentPlantSpawnConfig = getRandomPlantSpawnConfig();
   console.log("[PLANT] 选定的植物刷新配置:", gs.currentPlantSpawnConfig);
-  addLog("[PLANT] 植物刷新配置: " + gs.currentPlantSpawnConfig.name + " (" + gs.currentPlantSpawnConfig.spawnInterval + "ms)", "plant");
+  addLog("[PLANT] 植物刷新配置: " + gs.currentPlantSpawnConfig.name + " (" + gs.currentPlantSpawnConfig.spawnInterval + "ms)", "end");
 
   updateHUD();
   addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + gameConfig.dayDuration + " 秒收集时间 ════", "round");

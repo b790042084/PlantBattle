@@ -109,11 +109,7 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
 });
 
 // ─────────────────── Add wave (round config) ─────────
-// Note: HTML has two buttons with id="btnAddWave" (wave library and round config sections).
-// The original code attached both handlers to the same first element via getElementById,
-// so the "add wave type" (in editor.js) and "add round wave" handlers both fire on the same button.
-// We preserve that behaviour here.
-document.getElementById("btnAddWave").addEventListener("click", function() {
+document.getElementById("btnAddRoundWave").addEventListener("click", function() {
   waveList.push([]);
   renderRoundConfig();
   const elRoundConfigBody = document.getElementById("roundConfigBody");
