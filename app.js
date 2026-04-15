@@ -58,15 +58,18 @@ function sanitizePlantSpawn(p) {
 }
 plantSpawnConfigs.forEach(sanitizePlantSpawn);
 
-// ─────────────────── Round Monster Config ────────────
-const roundConfig = { baseCount: 5, countPerRound: 2, allowedMonsters: null };
+// ─────────────────── Wave List Config ────────────────
+// waveList[i] = array of { monsterIdx, count } for wave i+1
+const waveList = [
+  [{ monsterIdx: 0, count: 5 }],
+  [{ monsterIdx: 0, count: 4 }, { monsterIdx: 1, count: 2 }],
+  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 2, count: 2 }, { monsterIdx: 3, count: 1 }],
+];
 
-function sanitizeRoundConfig(r) {
-  r.baseCount     = Math.max(1, Math.floor(toNum(r.baseCount,     5)));
-  r.countPerRound = Math.max(0, Math.floor(toNum(r.countPerRound, 2)));
-  if (!Array.isArray(r.allowedMonsters)) r.allowedMonsters = null;
+function sanitizeWaveEntry(entry) {
+  entry.monsterIdx = Math.max(0, Math.floor(toNum(entry.monsterIdx, 0)));
+  entry.count      = Math.max(0, Math.floor(toNum(entry.count, 0)));
 }
-sanitizeRoundConfig(roundConfig);
 
 function sanitizeMonster(m) {
   m.name           = String(m.name  || "怪物").trim() || "怪物";
@@ -285,7 +288,7 @@ function updateBackground() {
 }
 
 function updateHUD() {
-  elRoundNum.textContent = gs.round;
+  elRoundNum.textContent = gs.round + (waveList.length > 0 ? " / " + waveList.length : "");
   if (elLives) elLives.textContent = gs.lives;
   if (elScore) elScore.textContent = gs.score;
   const labels = {
@@ -293,7 +296,8 @@ function updateHUD() {
     day:"白天 — 收集中",
     dusk:"黄昏 — 摆放植物",
     night:"夜晚 — 刷怪中",
-    gameover:"游戏结束"
+    gameover:"游戏结束",
+    victory:"🏆 通关胜利！"
   };
   elPhaseChip.textContent = labels[gs.phase] || gs.phase;
   elPhaseChip.className   = "chip phase-chip phase-" + gs.phase;
@@ -914,41 +918,43 @@ function endDusk() {
 
 // ─────────────────── Night Phase ─────────────────────
 function buildQueue() {
-  const count = roundConfig.baseCount + (gs.round - 1) * roundConfig.countPerRound;
-  const arr   = [];
-  // Determine the pool of allowed monster indices
-  let allowed = Array.isArray(roundConfig.allowedMonsters) && roundConfig.allowedMonsters.length > 0
-    ? roundConfig.allowedMonsters.filter(function(i) { return i >= 0 && i < monsterTypes.length; })
-    : null;
-  if (!allowed || allowed.length === 0) {
-    allowed = monsterTypes.map(function(_, idx) { return idx; });
-  }
-  for (let i = 0; i < count; i++) {
-    const ti      = allowed[Math.floor(Math.random() * allowed.length)];
-    const t       = monsterTypes[ti];
-    const scale   = 1 + (gs.round - 1) * ROUND_SCALE_FACTOR;
-    arr.push({
-      id:             uid(),
-      typeIdx:        ti,
-      name:           t.name,
-      emoji:          t.emoji,
-      hp:             Math.floor(t.hp  * scale),
-      maxHp:          Math.floor(t.hp  * scale),
-      atk:            Math.floor(t.atk * scale),
-      speed:          t.speed,
-      attackInterval: t.attackInterval,
-      reward:         t.reward,
-      lane:           Math.floor(Math.random() * LANES),
-      y:              0,
-      eating:         false,
-      eatRow:         -1,
-      lastAttack:     0,
-      slowUntil:      0,
-      poisonTurns:    0,
-      poisonDmg:      0,
-      dead:           false,
-      el:             null,
-    });
+  const waveIdx = gs.round - 1;
+  const waveDef = waveList[waveIdx] || [];
+  const arr     = [];
+  const scale   = 1 + waveIdx * ROUND_SCALE_FACTOR;
+  waveDef.forEach(function(entry) {
+    const ti = entry.monsterIdx;
+    const t  = monsterTypes[ti];
+    if (!t) return;
+    for (let i = 0; i < entry.count; i++) {
+      arr.push({
+        id:             uid(),
+        typeIdx:        ti,
+        name:           t.name,
+        emoji:          t.emoji,
+        hp:             Math.floor(t.hp  * scale),
+        maxHp:          Math.floor(t.hp  * scale),
+        atk:            Math.floor(t.atk * scale),
+        speed:          t.speed,
+        attackInterval: t.attackInterval,
+        reward:         t.reward,
+        lane:           Math.floor(Math.random() * LANES),
+        y:              0,
+        eating:         false,
+        eatRow:         -1,
+        lastAttack:     0,
+        slowUntil:      0,
+        poisonTurns:    0,
+        poisonDmg:      0,
+        dead:           false,
+        el:             null,
+      });
+    }
+  });
+  // Shuffle so monsters of different types are interleaved
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
   }
   return arr;
 }
@@ -965,7 +971,7 @@ function startNight() {
   // Add dark fog over collection zone
   elCollect.classList.add("fog-active");
   updateHUD();
-  addLog("════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物 ════", "round");
+  addLog("════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物（第 " + gs.round + " 波 / 共 " + waveList.length + " 波）════", "round");
   gs.animId = requestAnimationFrame(nightLoop);
 }
 
@@ -1268,12 +1274,26 @@ function fireProjFx(plant, monster) {
   }
 }
 
-// ─────────────────── Night End / Game Over ────────────
+// ─────────────────── Night End / Victory / Game Over ─
+function victory() {
+  if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
+  if (gs.phaseHandle){ clearInterval(gs.phaseHandle);    gs.phaseHandle = null; }
+  elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
+  gs.monsters = [];
+  gs.phase = "victory";
+  updateHUD();
+  addLog("🏆 恭喜通关！全部 " + waveList.length + " 波怪物已击败！最终分数：" + gs.score, "end");
+}
+
 function endNight() {
   if (gs.animId) { cancelAnimationFrame(gs.animId); gs.animId = null; }
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
-  addLog("🎉 第 " + gs.round + " 回合胜利！当前分数：" + gs.score, "end");
+  addLog("🎉 第 " + gs.round + " 波胜利！当前分数：" + gs.score, "end");
+  if (gs.round >= waveList.length) {
+    victory();
+    return;
+  }
   gs.round += 1;
   setTimeout(startDay, 2200);
 }
@@ -1312,7 +1332,8 @@ function fullReset() {
 }
 
 document.getElementById("btnStart").addEventListener("click", function() {
-  if (gs.phase !== "idle" && gs.phase !== "gameover") return;
+  if (gs.phase !== "idle" && gs.phase !== "gameover" && gs.phase !== "victory") return;
+  if (waveList.length === 0) { addLog("请先在「每波怪物配置」中添加至少一波！", "dodge"); return; }
   fullReset();
   gs.round = 1;
   startDay();
@@ -1336,9 +1357,9 @@ document.getElementById("btnSaveConfig").addEventListener("click", function() {
       monsterTypes:      monsterTypes, 
       waveTypes:         waveTypes,
       plantSpawnConfigs: plantSpawnConfigs,
-      roundConfig:       roundConfig
+      waveList:          waveList
     }));
-    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次怪物配置已保存到本地浏览器。", "end");
+    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次配置已保存到本地浏览器。", "end");
   } catch(e) {
     addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
@@ -1375,11 +1396,12 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       plantSpawnConfigs.forEach(sanitizePlantSpawn);
       renderPlantSpawnLibrary();
     }
-    if (data.roundConfig && typeof data.roundConfig === "object") {
-      roundConfig.baseCount       = data.roundConfig.baseCount;
-      roundConfig.countPerRound   = data.roundConfig.countPerRound;
-      roundConfig.allowedMonsters = Array.isArray(data.roundConfig.allowedMonsters) ? data.roundConfig.allowedMonsters : null;
-      sanitizeRoundConfig(roundConfig);
+    if (Array.isArray(data.waveList) && data.waveList.length >= 1) {
+      waveList.splice(0, waveList.length);
+      data.waveList.forEach(function(w) {
+        waveList.push(Array.isArray(w) ? w : []);
+      });
+      waveList.forEach(function(waveDef) { waveDef.forEach(sanitizeWaveEntry); });
       renderRoundConfig();
     }
     addLog("配置加载成功！", "end");
@@ -1836,55 +1858,79 @@ document.getElementById("btnAddPlantSpawn").addEventListener("click", function()
   addLog("新植物刷新配置已添加，请填写属性后保存。", "end");
 });
 
-// ─────────────────── Round Monster Config Editor ──────
+// ─────────────────── Wave List Config Editor ──────────
 elRoundConfigToggle.addEventListener("click", function() {
   const open = elRoundConfigBody.style.display === "none";
   elRoundConfigBody.style.display = open ? "" : "none";
 });
 
 function renderRoundConfig() {
-  // Build checkboxes for each monster type
-  var checkboxHtml = '<div class="rc-monster-checks">';
-  monsterTypes.forEach(function(m, idx) {
-    var checked = (!Array.isArray(roundConfig.allowedMonsters)) ? "checked" : (roundConfig.allowedMonsters.indexOf(idx) !== -1 ? "checked" : "");
-    checkboxHtml +=
-      '<label class="rc-monster-check-label">' +
-        '<input type="checkbox" class="rc-monster-cb" data-idx="' + idx + '" ' + checked + '>' +
-        ' ' + m.emoji + ' ' + m.name +
-      '</label>';
-  });
-  checkboxHtml += '</div>';
-
-  elRoundConfigForm.innerHTML =
-    '<label>每波基础怪物数量' +
-      '<input id="rc-baseCount" type="number" min="1" step="1" value="' + roundConfig.baseCount + '">' +
-    '</label>' +
-    '<label>每回合额外增加怪物数' +
-      '<input id="rc-countPerRound" type="number" min="0" step="1" value="' + roundConfig.countPerRound + '">' +
-    '</label>' +
-    '<div class="rc-monster-types-group">' +
-      '<span class="rc-monster-types-label">允许出现的怪物种类</span>' +
-      checkboxHtml +
-    '</div>' +
-    '<div class="lib-form-actions">' +
-      '<button id="btnRoundConfigSave">保存</button>' +
-    '</div>';
-
-  document.getElementById("btnRoundConfigSave").addEventListener("click", function() {
-    roundConfig.baseCount     = toNum(document.getElementById("rc-baseCount").value,     roundConfig.baseCount);
-    roundConfig.countPerRound = toNum(document.getElementById("rc-countPerRound").value, roundConfig.countPerRound);
-    var checked = Array.from(document.querySelectorAll(".rc-monster-cb:checked")).map(function(el) {
-      return parseInt(el.getAttribute("data-idx"), 10);
+  var html = '';
+  waveList.forEach(function(waveDef, waveIdx) {
+    html += '<div class="wl-wave-item" data-wave="' + waveIdx + '">';
+    html += '<div class="wl-wave-header">';
+    html += '<span class="wl-wave-title">第 ' + (waveIdx + 1) + ' 波</span>';
+    if (waveList.length > 1) {
+      html += '<button class="btn-danger btn-wl-del-wave" data-wave="' + waveIdx + '">删除此波</button>';
+    }
+    html += '</div>';
+    html += '<div class="wl-monster-counts">';
+    monsterTypes.forEach(function(m, mIdx) {
+      var entry = null;
+      for (var ei = 0; ei < waveDef.length; ei++) {
+        if (waveDef[ei].monsterIdx === mIdx) { entry = waveDef[ei]; break; }
+      }
+      var cnt = entry ? entry.count : 0;
+      html += '<label class="wl-count-label">' +
+        '<span class="wl-count-name">' + m.emoji + ' ' + escHtml(m.name) + '</span>' +
+        '<input type="number" min="0" step="1" class="wl-count-input"' +
+          ' data-wave="' + waveIdx + '" data-midx="' + mIdx + '" value="' + cnt + '">' +
+        '</label>';
     });
-    roundConfig.allowedMonsters = checked.length > 0 ? checked : null;
-    sanitizeRoundConfig(roundConfig);
-    renderRoundConfig();
-    var typeNames = Array.isArray(roundConfig.allowedMonsters)
-      ? roundConfig.allowedMonsters.map(function(i) { return monsterTypes[i] ? monsterTypes[i].name : null; }).filter(Boolean).join("、")
-      : "全部";
-    addLog("波次怪物配置已更新：基础 " + roundConfig.baseCount + " 只，每回合 +" + roundConfig.countPerRound + " 只，允许种类：" + typeNames + "。", "end");
+    html += '</div>';
+    html += '<div class="lib-form-actions">';
+    html += '<button class="btn-wl-save-wave" data-wave="' + waveIdx + '">保存此波</button>';
+    html += '</div>';
+    html += '</div>';
   });
+  elRoundConfigForm.innerHTML = html;
+  updateHUD();
 }
+
+elRoundConfigForm.addEventListener("click", function(evt) {
+  const btn = evt.target;
+  if (!(btn instanceof HTMLElement)) return;
+
+  if (btn.classList.contains("btn-wl-save-wave")) {
+    const waveIdx = parseInt(btn.dataset.wave, 10);
+    const inputs  = elRoundConfigForm.querySelectorAll('.wl-count-input[data-wave="' + waveIdx + '"]');
+    const newDef  = [];
+    inputs.forEach(function(inp) {
+      const mIdx = parseInt(inp.dataset.midx, 10);
+      const cnt  = Math.max(0, Math.floor(toNum(inp.value, 0)));
+      if (cnt > 0) newDef.push({ monsterIdx: mIdx, count: cnt });
+    });
+    waveList[waveIdx] = newDef;
+    addLog("第 " + (waveIdx + 1) + " 波配置已保存。", "end");
+    return;
+  }
+
+  if (btn.classList.contains("btn-wl-del-wave")) {
+    const waveIdx = parseInt(btn.dataset.wave, 10);
+    if (waveList.length <= 1) { addLog("至少需要保留 1 波配置。", "dodge"); return; }
+    waveList.splice(waveIdx, 1);
+    renderRoundConfig();
+    addLog("已删除第 " + (waveIdx + 1) + " 波配置。", "end");
+    return;
+  }
+});
+
+document.getElementById("btnAddWave").addEventListener("click", function() {
+  waveList.push([]);
+  renderRoundConfig();
+  if (elRoundConfigBody.style.display === "none") elRoundConfigBody.style.display = "";
+  addLog("已添加第 " + waveList.length + " 波，请配置怪物数量后保存。", "end");
+});
 
 // ─────────────────── Boot ────────────────────────────
 

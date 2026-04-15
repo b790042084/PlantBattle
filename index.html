@@ -24,7 +24,7 @@
         </div>
         <div class="hud">
           <div class="chip phase-chip" id="phaseChip">等待开始</div>
-          <div class="chip">回合 <strong id="roundNum">0</strong></div>
+          <div class="chip">波次 <strong id="roundNum">0</strong></div>
           <div class="chip timer-chip" id="timerChip" style="display:none">⏱ <strong id="dayTimer">30</strong>s</div>
           <div class="chip">❤️ <strong id="livesDisplay">5</strong></div>
           <div class="chip">⭐ <strong id="scoreDisplay">0</strong></div>
@@ -125,7 +125,10 @@
           <h3>每波怪物配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
         </div>
         <div class="library-panel-body" id="roundConfigBody" style="display:none">
-          <p class="panel-tip">可在此处配置每波（夜晚阶段）生成的怪物基础数量、每回合递增数量，以及允许出现的怪物种类。</p>
+          <p class="panel-tip">在此配置每一波夜晚阶段出现的僵尸种类与数量。通过全部波次后即赢得比赛！</p>
+          <div class="library-header">
+            <button id="btnAddWave" class="ghost">＋ 添加波次</button>
+          </div>
           <div id="roundConfigForm" class="round-config-form library-list"></div>
         </div>
       </section>
