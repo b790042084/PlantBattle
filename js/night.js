@@ -146,7 +146,6 @@ function nightLoop(ts) {
         updateHUD();
         addLog("⚠ " + m.name + " 穿越了防线！剩余生命：" + gs.lives, "crit");
         if (m.el) { m.el.remove(); m.el = null; }
-        if (gs.lives <= 0) { endGame(); return; }
       }
     }
   }
