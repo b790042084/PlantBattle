@@ -19,14 +19,12 @@
         <div class="controls">
           <button id="btnStart">开始游戏</button>
           <button id="btnReset" class="ghost">重置</button>
-          <button id="btnSaveConfig" class="ghost">保存配置</button>
-          <button id="btnLoadConfig" class="ghost">加载配置</button>
-          <button id="btnExportConfig" class="ghost">导出配置</button>
-          <button id="btnImportConfig" class="ghost">导入配置</button>
+          <button id="btnGoConfig" class="ghost">⚙ 配置</button>
+          <button id="btnGoLog" class="ghost">📋 日志</button>
         </div>
         <div class="hud">
           <div class="chip phase-chip" id="phaseChip">等待开始</div>
-          <div class="chip">波次 <strong id="roundNum">0</strong></div>
+          <div class="chip">关卡 <strong id="roundNum">0</strong></div>
           <div class="chip timer-chip" id="timerChip" style="display:none">⏱ <strong id="dayTimer">30</strong>s</div>
           <div class="chip">❤️ <strong id="livesDisplay">5</strong></div>
           <div class="chip">💰 <strong id="goldDisplay">0</strong></div>
@@ -35,162 +33,195 @@
         </div>
       </header>
 
-      <!-- ===== 收集区 ===== -->
-      <section class="collection-zone" id="collectionZone">
-        <span class="zone-label">收集区</span>
-        <span class="zone-hint" id="collectionHint">（←→/AD左右移动，空格跳跃切换行，海浪来时及时跳开）</span>
-      </section>
+      <!-- ============================================= -->
+      <!-- ===== 游戏视图 (Game View) ===== -->
+      <!-- ============================================= -->
+      <div id="gameView">
 
-      <!-- ===== 战场：刷怪区 + 种植区（共享坐标系）===== -->
-      <div class="battle-wrapper">
-        <!-- 刷怪区背景 -->
-        <div class="monster-zone-bg">
-          <span class="zone-label">刷怪区</span>
+        <!-- ===== 收集区 ===== -->
+        <section class="collection-zone" id="collectionZone">
+          <span class="zone-label">收集区</span>
+          <span class="zone-hint" id="collectionHint">（←→/AD左右移动，空格跳跃切换行，海浪来时及时跳开）</span>
+        </section>
+
+        <!-- ===== 战场：刷怪区 + 种植区（共享坐标系）===== -->
+        <div class="battle-wrapper">
+          <!-- 刷怪区背景 -->
+          <div class="monster-zone-bg">
+            <span class="zone-label">刷怪区</span>
+          </div>
+          <!-- 种植区背景 + 网格 -->
+          <div class="planting-zone-bg">
+            <span class="zone-label">种植区</span>
+            <div class="planting-grid" id="plantingGrid"></div>
+          </div>
+          <!-- 怪物动画覆盖层（绝对定位，覆盖整个 battle-wrapper）-->
+          <div class="battle-area" id="battleArea"></div>
         </div>
-        <!-- 种植区背景 + 网格 -->
-        <div class="planting-zone-bg">
-          <span class="zone-label">种植区</span>
-          <div class="planting-grid" id="plantingGrid"></div>
+
+        <!-- ===== 升级商店 ===== -->
+        <section class="shop-section">
+          <div class="shop-header">
+            <h3>💰 升级商店</h3>
+            <span class="shop-hint">使用金钱升级各项能力</span>
+          </div>
+          <div id="shopContent" class="shop-content">
+            <div class="shop-category">
+              <h4>🎒 玩家属性</h4>
+              <div class="shop-item" id="shopCarry">
+                <div class="shop-item-info">
+                  <span class="shop-item-name">携带数量</span>
+                  <span class="shop-item-desc">增加收集时可携带的植物数量</span>
+                  <span class="shop-item-level" id="carryLevelDisplay">等级 0 · 当前上限 3</span>
+                </div>
+                <button class="shop-buy-btn" id="btnUpgradeCarry">升级 <span id="carryCostDisplay">50</span>💰</button>
+              </div>
+            </div>
+            <div class="shop-category">
+              <h4>🌱 种植区</h4>
+              <div class="shop-item" id="shopZone">
+                <div class="shop-item-info">
+                  <span class="shop-item-name">解锁格子</span>
+                  <span class="shop-item-desc">购买后可点击锁定的格子解锁</span>
+                  <span class="shop-item-level" id="zoneLevelDisplay">等级 0 · 已解锁 2 / 10</span>
+                </div>
+                <button class="shop-buy-btn" id="btnUpgradeZone">升级 <span id="zoneCostDisplay">80</span>💰</button>
+              </div>
+            </div>
+            <div class="shop-category">
+              <h4>🌿 植物升级</h4>
+              <div id="shopPlantUpgrades" class="shop-plant-list"></div>
+            </div>
+          </div>
+        </section>
+
+      </div><!-- /gameView -->
+
+      <!-- ============================================= -->
+      <!-- ===== 配置视图 (Config View) ===== -->
+      <!-- ============================================= -->
+      <div id="configView" style="display:none">
+        <div class="view-nav">
+          <button id="btnBackFromConfig">← 返回游戏</button>
+          <button id="btnSaveConfig" class="ghost">保存配置</button>
+          <button id="btnLoadConfig" class="ghost">加载配置</button>
+          <button id="btnExportConfig" class="ghost">导出配置</button>
+          <button id="btnImportConfig" class="ghost">导入配置</button>
         </div>
-        <!-- 怪物动画覆盖层（绝对定位，覆盖整个 battle-wrapper）-->
-        <div class="battle-area" id="battleArea"></div>
+
+        <!-- ===== 植物库（可折叠配置）===== -->
+        <section class="panel library-panel">
+          <div class="library-panel-head" id="libraryToggle">
+            <h3>植物库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="libraryBody" style="display:none">
+            <p class="panel-tip">可在此处为每个植物填写图片 URL、调整属性后保存配置。</p>
+            <div class="library-header">
+              <button id="btnAddPlant" class="ghost">＋ 添加植物</button>
+            </div>
+            <div id="plantLibraryList" class="library-list"></div>
+          </div>
+        </section>
+
+        <!-- ===== 怪物库（可折叠配置）===== -->
+        <section class="panel library-panel monster-library-panel">
+          <div class="library-panel-head" id="monsterLibraryToggle">
+            <h3>怪物库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="monsterLibraryBody" style="display:none">
+            <p class="panel-tip">可在此处调整怪物的 Emoji、名称及各项属性后保存配置。</p>
+            <div class="library-header">
+              <button id="btnAddMonster" class="ghost">＋ 添加怪物</button>
+            </div>
+            <div id="monsterLibraryList" class="library-list"></div>
+          </div>
+        </section>
+
+        <!-- ===== 海浪库（可折叠配置）===== -->
+        <section class="panel library-panel wave-library-panel">
+          <div class="library-panel-head" id="waveLibraryToggle">
+            <h3>海浪库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="waveLibraryBody" style="display:none">
+            <p class="panel-tip">可在此处调整海浪的移动速度、刷新间隔及权重配置。</p>
+            <div class="library-header">
+              <button id="btnAddWave" class="ghost">＋ 添加海浪类型</button>
+            </div>
+            <div id="waveLibraryList" class="library-list"></div>
+          </div>
+        </section>
+
+        <!-- ===== 植物刷新配置（可折叠配置）===== -->
+        <section class="panel library-panel plant-spawn-library-panel">
+          <div class="library-panel-head" id="plantSpawnLibraryToggle">
+            <h3>植物刷新配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="plantSpawnLibraryBody" style="display:none">
+            <p class="panel-tip">可在此处调整植物的刷新间隔及权重，白天开始时会按权重随机选择一个配置。</p>
+            <div class="library-header">
+              <button id="btnAddPlantSpawn" class="ghost">＋ 添加刷新配置</button>
+            </div>
+            <div id="plantSpawnLibraryList" class="library-list"></div>
+          </div>
+        </section>
+
+        <!-- ===== 每关怪物配置（可折叠配置）===== -->
+        <section class="panel library-panel round-config-panel">
+          <div class="library-panel-head" id="roundConfigToggle">
+            <h3>每关怪物配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="roundConfigBody" style="display:none">
+            <p class="panel-tip">在此配置每一关夜晚阶段出现的僵尸种类与数量。通过全部关卡后即赢得胜利！</p>
+            <div class="library-header">
+              <button id="btnAddRoundWave" class="ghost">＋ 添加关卡</button>
+            </div>
+            <div id="roundConfigForm" class="round-config-form library-list"></div>
+          </div>
+        </section>
+
+        <!-- ===== 游戏基础配置（可折叠配置）===== -->
+        <section class="panel library-panel round-config-panel">
+          <div class="library-panel-head" id="gameConfigToggle">
+            <h3>游戏基础配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
+          </div>
+          <div class="library-panel-body" id="gameConfigBody" style="display:none">
+            <p class="panel-tip">可在此处配置每回合白天、黄昏、夜晚的时长（秒）以及玩家的初始生命值。夜晚限时为 0 表示不限时，打完全部怪物才结束。</p>
+            <div id="gameConfigForm" class="round-config-form library-list"></div>
+          </div>
+        </section>
+      </div><!-- /configView -->
+
+      <!-- ============================================= -->
+      <!-- ===== 日志视图 (Log View) ===== -->
+      <!-- ============================================= -->
+      <div id="logView" style="display:none">
+        <div class="view-nav">
+          <button id="btnBackFromLog">← 返回游戏</button>
+          <button id="btnClearLog" class="ghost">清空日志</button>
+        </div>
+        <section class="panel log-panel">
+          <div class="log-head">
+            <h3>战斗日志</h3>
+          </div>
+          <div id="log"></div>
+        </section>
+      </div><!-- /logView -->
+
+      <!-- ===== 背包浮动按钮 ===== -->
+      <button id="btnBackpack" class="backpack-float-btn">🎒 背包 <span id="backpackCountBadge" class="bp-badge">0</span></button>
+
+      <!-- ===== 背包弹窗 ===== -->
+      <div id="backpackModal" class="modal-overlay" style="display:none">
+        <div class="modal-content backpack-modal">
+          <div class="modal-header">
+            <h3>🎒 背包</h3>
+            <span id="backpackCount">0 个植物</span>
+            <span class="backpack-hint">点击选中 → 点空格放置 / 拖动到同名同阶已种植物喂养突破</span>
+            <button id="btnCloseBackpack" class="modal-close-btn">✕</button>
+          </div>
+          <div id="backpackItems" class="backpack-items"></div>
+        </div>
       </div>
-
-      <!-- ===== 背包 ===== -->
-      <section class="backpack-section">
-        <div class="backpack-header">
-          <h3>背包</h3>
-          <span id="backpackCount">0 个植物</span>
-          <span class="backpack-hint">点击选中 → 点空格放置 / 拖动到同名同阶已种植物喂养突破</span>
-        </div>
-        <div id="backpackItems" class="backpack-items"></div>
-      </section>
-
-      <!-- ===== 升级商店 ===== -->
-      <section class="shop-section">
-        <div class="shop-header">
-          <h3>💰 升级商店</h3>
-          <span class="shop-hint">使用金钱升级各项能力</span>
-        </div>
-        <div id="shopContent" class="shop-content">
-          <div class="shop-category">
-            <h4>🎒 玩家属性</h4>
-            <div class="shop-item" id="shopCarry">
-              <div class="shop-item-info">
-                <span class="shop-item-name">携带数量</span>
-                <span class="shop-item-desc">增加收集时可携带的植物数量</span>
-                <span class="shop-item-level" id="carryLevelDisplay">等级 0 · 当前上限 3</span>
-              </div>
-              <button class="shop-buy-btn" id="btnUpgradeCarry">升级 <span id="carryCostDisplay">50</span>💰</button>
-            </div>
-          </div>
-          <div class="shop-category">
-            <h4>🌱 种植区</h4>
-            <div class="shop-item" id="shopZone">
-              <div class="shop-item-info">
-                <span class="shop-item-name">种植区等级</span>
-                <span class="shop-item-desc">增加种植区可放置植物的格子数</span>
-                <span class="shop-item-level" id="zoneLevelDisplay">等级 0 · 当前格子 6</span>
-              </div>
-              <button class="shop-buy-btn" id="btnUpgradeZone">升级 <span id="zoneCostDisplay">80</span>💰</button>
-            </div>
-          </div>
-          <div class="shop-category">
-            <h4>🌿 植物升级</h4>
-            <div id="shopPlantUpgrades" class="shop-plant-list"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ===== 植物库（可折叠配置）===== -->
-      <section class="panel library-panel">
-        <div class="library-panel-head" id="libraryToggle">
-          <h3>植物库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="libraryBody" style="display:none">
-          <p class="panel-tip">可在此处为每个植物填写图片 URL、调整属性后保存配置。</p>
-          <div class="library-header">
-            <button id="btnAddPlant" class="ghost">＋ 添加植物</button>
-          </div>
-          <div id="plantLibraryList" class="library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 怪物库（可折叠配置）===== -->
-      <section class="panel library-panel monster-library-panel">
-        <div class="library-panel-head" id="monsterLibraryToggle">
-          <h3>怪物库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="monsterLibraryBody" style="display:none">
-          <p class="panel-tip">可在此处调整怪物的 Emoji、名称及各项属性后保存配置。</p>
-          <div class="library-header">
-            <button id="btnAddMonster" class="ghost">＋ 添加怪物</button>
-          </div>
-          <div id="monsterLibraryList" class="library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 海浪库（可折叠配置）===== -->
-      <section class="panel library-panel wave-library-panel">
-        <div class="library-panel-head" id="waveLibraryToggle">
-          <h3>海浪库配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="waveLibraryBody" style="display:none">
-          <p class="panel-tip">可在此处调整海浪的移动速度、刷新间隔及权重配置。</p>
-          <div class="library-header">
-            <button id="btnAddWave" class="ghost">＋ 添加海浪类型</button>
-          </div>
-          <div id="waveLibraryList" class="library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 植物刷新配置（可折叠配置）===== -->
-      <section class="panel library-panel plant-spawn-library-panel">
-        <div class="library-panel-head" id="plantSpawnLibraryToggle">
-          <h3>植物刷新配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="plantSpawnLibraryBody" style="display:none">
-          <p class="panel-tip">可在此处调整植物的刷新间隔及权重，白天开始时会按权重随机选择一个配置。</p>
-          <div class="library-header">
-            <button id="btnAddPlantSpawn" class="ghost">＋ 添加刷新配置</button>
-          </div>
-          <div id="plantSpawnLibraryList" class="library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 每波怪物配置（可折叠配置）===== -->
-      <section class="panel library-panel round-config-panel">
-        <div class="library-panel-head" id="roundConfigToggle">
-          <h3>每波怪物配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="roundConfigBody" style="display:none">
-          <p class="panel-tip">在此配置每一波夜晚阶段出现的僵尸种类与数量。通过全部波次后即赢得胜利！</p>
-          <div class="library-header">
-            <button id="btnAddRoundWave" class="ghost">＋ 添加波次</button>
-          </div>
-          <div id="roundConfigForm" class="round-config-form library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 游戏基础配置（可折叠配置）===== -->
-      <section class="panel library-panel round-config-panel">
-        <div class="library-panel-head" id="gameConfigToggle">
-          <h3>游戏基础配置 <span class="toggle-hint">（点击展开 / 收起）</span></h3>
-        </div>
-        <div class="library-panel-body" id="gameConfigBody" style="display:none">
-          <p class="panel-tip">可在此处配置每回合白天、黄昏、夜晚的时长（秒）以及玩家的初始生命值。夜晚限时为 0 表示不限时，打完全部怪物才结束。</p>
-          <div id="gameConfigForm" class="round-config-form library-list"></div>
-        </div>
-      </section>
-
-      <!-- ===== 日志 ===== -->
-      <section class="panel log-panel">
-        <div class="log-head">
-          <h3>战斗日志</h3>
-          <button id="btnClearLog" class="ghost">清空</button>
-        </div>
-        <div id="log"></div>
-      </section>
 
     </main>
     <script type="module" src="js/main.js"></script>

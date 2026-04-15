@@ -19,6 +19,12 @@ import {
 import { escHtml, getImg, buildSvgFallback, uid } from "./utils.js";
 import { waveList } from "./config.js";
 
+// ─────────────────── Backpack badge helper ───────────
+function updateBackpackBadge() {
+  var badge = document.getElementById("backpackCountBadge");
+  if (badge) badge.textContent = gs.backpack.length;
+}
+
 // ─────────────────── Logging ─────────────────────────
 export function addLog(text, type) {
   if (type === undefined) type = "hit";
@@ -177,7 +183,7 @@ function feedPlantFromGrid(targetSlotIdx, sourceSlotIdx) {
 
 // ─────────────────── Swap / Move in grid ─────────────
 function swapPlantsInGrid(slotA, slotB) {
-  const cols = Math.min(gs.activeSlots, LANES);
+  const cols = LANES;
   const temp  = gs.grid[slotA];
   gs.grid[slotA] = gs.grid[slotB];
   gs.grid[slotB] = temp;
@@ -209,14 +215,10 @@ function swapPlantsInGrid(slotA, slotB) {
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
-  // Use activeSlots to determine how many grid slots to show
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  // Update grid template columns based on active slots
-  const cols = Math.min(totalSlots, LANES);
-  elPlantingGrid.style.gridTemplateColumns = "repeat(" + cols + ", 1fr)";
-  const rows = Math.ceil(totalSlots / cols);
-  elPlantingGrid.style.gridTemplateRows = "repeat(" + rows + ", 1fr)";
-  for (let i = 0; i < totalSlots; i++) {
+  // Always show all SLOTS (5 cols × 2 rows)
+  elPlantingGrid.style.gridTemplateColumns = "repeat(" + LANES + ", 1fr)";
+  elPlantingGrid.style.gridTemplateRows = "repeat(2, 1fr)";
+  for (let i = 0; i < SLOTS; i++) {
     const s = document.createElement("div");
     s.className    = "plant-slot";
     s.dataset.slot = i;
@@ -234,11 +236,20 @@ export function initGrid() {
 }
 
 export function renderGrid() {
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  const cols = Math.min(totalSlots, LANES);
-  for (let i = 0; i < totalSlots; i++) {
+  const cols = LANES;
+  for (let i = 0; i < SLOTS; i++) {
     const el    = elPlantingGrid.children[i];
     if (!el) continue;
+
+    // Check if slot is locked
+    if (!gs.unlockedSlots[i]) {
+      el.className = "plant-slot slot-locked" + (gs.slotUnlockCredits > 0 ? " slot-unlockable" : "");
+      el.draggable = false;
+      el.innerHTML = '<div class="slot-lock-icon">🔒</div>' +
+        (gs.slotUnlockCredits > 0 ? '<div class="slot-lock-hint">点击解锁</div>' : '');
+      continue;
+    }
+
     const plant = gs.grid[i];
     const canHL = gs.selectedId !== null && !plant;
 
@@ -332,6 +343,24 @@ export function renderGrid() {
 
 export function onSlotClick(e) {
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+
+  // Handle locked slot click
+  if (!gs.unlockedSlots[idx]) {
+    if (gs.slotUnlockCredits > 0) {
+      gs.slotUnlockCredits -= 1;
+      gs.unlockedSlots[idx] = true;
+      gs.activeSlots = gs.unlockedSlots.filter(function(v) { return v; }).length;
+      // Ensure grid array has space
+      while (gs.grid.length < SLOTS) gs.grid.push(null);
+      addLog("🔓 格子 " + (idx % LANES + 1) + "-" + (Math.floor(idx / LANES) + 1) + " 已解锁！剩余解锁次数：" + gs.slotUnlockCredits, "end");
+      renderGrid();
+      updateHUD();
+    } else {
+      addLog("🔒 请先在升级商店购买「解锁格子」！", "dodge");
+    }
+    return;
+  }
+
   const plant = gs.grid[idx];
 
   if (plant) {
@@ -365,7 +394,7 @@ export function onSlotClick(e) {
   const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
   const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
 
-  const cols = Math.min(gs.activeSlots, LANES);
+  const cols = LANES;
   gs.grid[idx] = Object.assign({}, pDef, {
     id:             uid(),
     plantIdx:       item.plantIdx,
@@ -423,6 +452,10 @@ function onSlotDragEnd(e) {
 function onSlotDragOver(e) {
   e.preventDefault();
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+
+  // Block interaction on locked slots
+  if (!gs.unlockedSlots[idx]) return;
+
   const plant = gs.grid[idx];
 
   // Grid-to-grid drag
@@ -468,6 +501,10 @@ function onSlotDrop(e) {
   e.currentTarget.classList.remove("slot-swap-highlight");
 
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+
+  // Block drop on locked slots
+  if (!gs.unlockedSlots[idx]) { _dragBpId = null; _dragGridSlot = null; return; }
+
   const plant = gs.grid[idx];
 
   // Grid-to-grid drop
@@ -508,7 +545,7 @@ function onSlotDrop(e) {
       const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
       const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
       const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
-      const cols = Math.min(gs.activeSlots, LANES);
+      const cols = LANES;
       gs.grid[idx] = Object.assign({}, pDef, {
         id:             uid(),
         plantIdx:       item.plantIdx,
@@ -544,6 +581,7 @@ function onSlotDrop(e) {
 // ─────────────────── Backpack ────────────────────────
 export function renderBackpack() {
   if (elBackpackCount) elBackpackCount.textContent = gs.backpack.length + " 个植物";
+  updateBackpackBadge();
   elBackpackItems.innerHTML = gs.backpack.map(function(item) {
     const p   = plantLibrary[item.plantIdx];
     const img = escHtml(getImg(p));
@@ -640,15 +678,13 @@ export function upgradeCarry() {
 
 export function upgradeZone() {
   const cost = getZoneUpgradeCost();
-  if (cost < 0) { addLog("种植区已达最大等级！", "dodge"); return; }
+  if (cost < 0) { addLog("解锁格子已达最大等级！", "dodge"); return; }
   if (gs.gold < cost) { addLog("金钱不足！需要 " + cost + " 金钱", "dodge"); return; }
   gs.gold -= cost;
   gs.plantingZoneLevel += 1;
-  gs.activeSlots = Math.min(getZoneBaseSlots() + gs.plantingZoneLevel * ZONE_UPGRADE_SLOTS, SLOTS);
-  // Resize grid array if needed
-  while (gs.grid.length < gs.activeSlots) gs.grid.push(null);
-  addLog("种植区升级！当前格子数：" + gs.activeSlots, "end");
-  initGrid();
+  gs.slotUnlockCredits += ZONE_UPGRADE_SLOTS;
+  addLog("🔓 获得 " + ZONE_UPGRADE_SLOTS + " 次格子解锁机会！请点击想要解锁的格子。", "end");
+  renderGrid();
   updateHUD();
 }
 
@@ -704,7 +740,9 @@ export function updateShopDisplay() {
   const zoneLvl = document.getElementById("zoneLevelDisplay");
   const zoneCost = document.getElementById("zoneCostDisplay");
   const zoneBtn = document.getElementById("btnUpgradeZone");
-  if (zoneLvl) zoneLvl.textContent = "等级 " + gs.plantingZoneLevel + " · 当前格子 " + gs.activeSlots;
+  const unlockedCount = gs.unlockedSlots.filter(function(v) { return v; }).length;
+  if (zoneLvl) zoneLvl.textContent = "等级 " + gs.plantingZoneLevel + " · 已解锁 " + unlockedCount + " / " + SLOTS +
+    (gs.slotUnlockCredits > 0 ? " · 待解锁 " + gs.slotUnlockCredits : "");
   const zc = getZoneUpgradeCost();
   if (zoneCost) zoneCost.textContent = zc >= 0 ? zc : "MAX";
   if (zoneBtn) zoneBtn.disabled = zc < 0 || gs.gold < zc;

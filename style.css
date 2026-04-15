@@ -362,6 +362,30 @@ label {
   50% { opacity: 1; }
 }
 
+/* Wave hit warning floating text */
+.wave-hit-warning {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 30;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  background: rgba(200, 40, 40, 0.85);
+  padding: 10px 24px;
+  border-radius: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: waveHitFade 2s ease-out forwards;
+  box-shadow: 0 4px 16px rgba(200, 40, 40, 0.5);
+}
+@keyframes waveHitFade {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(0.8); }
+}
+
 /* ===== BATTLE WRAPPER (monster zone + planting zone) ===== */
 .battle-wrapper {
   position: relative;
@@ -1098,4 +1122,143 @@ label {
 .bp-item.bp-dragging {
   opacity: 0.4;
   box-shadow: 0 0 0 2px #f5a623;
+}
+
+/* ===== LOCKED SLOT ===== */
+.plant-slot.slot-locked {
+  background: rgba(0,0,0,.25);
+  border: 2px dashed rgba(255,255,255,.15);
+  cursor: default;
+  position: relative;
+}
+.plant-slot.slot-locked:hover {
+  background: rgba(0,0,0,.30);
+  transform: none;
+}
+.plant-slot.slot-locked.slot-unlockable {
+  cursor: pointer;
+  border-color: rgba(255,224,102,.4);
+}
+.plant-slot.slot-locked.slot-unlockable:hover {
+  background: rgba(255,224,102,.15);
+  transform: scale(1.04);
+  border-color: #ffe066;
+}
+.slot-lock-icon {
+  font-size: 24px;
+  opacity: 0.5;
+  line-height: 1;
+}
+.slot-lock-hint {
+  font-size: 10px;
+  color: #ffe066;
+  margin-top: 2px;
+  font-weight: 600;
+}
+
+/* ===== VIEW NAVIGATION ===== */
+.view-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 14px 0 8px;
+  padding: 10px 14px;
+  background: var(--card);
+  border: 2px solid #c8d8bd;
+  border-radius: 12px;
+}
+
+/* ===== BACKPACK FLOATING BUTTON ===== */
+.backpack-float-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  background: #235f3d;
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 12px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,.25);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.backpack-float-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+}
+.bp-badge {
+  background: #e84040;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ===== BACKPACK MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-content {
+  background: var(--card);
+  border-radius: 16px 16px 0 0;
+  padding: 16px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 60vh;
+  overflow-y: auto;
+  box-shadow: 0 -4px 20px rgba(0,0,0,.2);
+  animation: slideUp 250ms ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e3e6dd;
+}
+.modal-header h3 { font-size: 16px; margin: 0; }
+.modal-close-btn {
+  margin-left: auto;
+  background: #888;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.modal-close-btn:hover { background: #666; }
+
+/* ===== LOG VIEW FULL HEIGHT ===== */
+#logView .log-panel #log {
+  height: 60vh;
 }
