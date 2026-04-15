@@ -399,6 +399,12 @@ function onSlotDragOver(e) {
     const source = gs.grid[_dragGridSlot];
     if (plant && canGridFeedPlant(source, plant)) {
       e.currentTarget.classList.add("slot-feed-highlight");
+    } else if (!plant) {
+      // Empty slot: allow move
+      e.currentTarget.classList.add("slot-highlight");
+    } else {
+      // Occupied slot but can't feed: allow swap
+      e.currentTarget.classList.add("slot-swap-highlight");
     }
     return;
   }
@@ -420,20 +426,28 @@ function onSlotDragOver(e) {
 function onSlotDragLeave(e) {
   e.currentTarget.classList.remove("slot-feed-highlight");
   e.currentTarget.classList.remove("slot-highlight");
+  e.currentTarget.classList.remove("slot-swap-highlight");
 }
 
 function onSlotDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove("slot-feed-highlight");
   e.currentTarget.classList.remove("slot-highlight");
+  e.currentTarget.classList.remove("slot-swap-highlight");
 
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
   const plant = gs.grid[idx];
 
   // Grid-to-grid drop
   if (_dragGridSlot !== null) {
-    if (_dragGridSlot !== idx && plant) {
-      feedPlantFromGrid(idx, _dragGridSlot);
+    if (_dragGridSlot !== idx) {
+      if (plant && canGridFeedPlant(gs.grid[_dragGridSlot], plant)) {
+        // Feed: same type & stage → consume source
+        feedPlantFromGrid(idx, _dragGridSlot);
+      } else {
+        // Swap (both occupied) or Move (target empty)
+        swapPlantsInGrid(_dragGridSlot, idx);
+      }
     }
     _dragGridSlot = null;
     return;
