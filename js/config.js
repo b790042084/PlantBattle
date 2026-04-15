@@ -139,3 +139,11 @@ export const ZONE_UPGRADE_SLOTS     = 1;      // +1 slot per zone level
 export const PLANT_UPGRADE_COST_BASE = 30;    // Base cost to upgrade plant level
 export const PLANT_UPGRADE_COST_MULT = 1.5;   // Cost multiplier per level
 export const PLANT_UPGRADE_STAT_MULT = 0.15;  // +15% stats per plant level
+
+// ─────────────────── Attack Range per Mode ───────────
+// Distance is Euclidean: sqrt((lane_diff)² + (y_diff)²)
+export const ATTACK_RANGE = {
+  melee:  1.5,   // Short range — own lane + adjacent, nearby y
+  ranged: 100,   // Effectively unlimited — entire battlefield
+  area:   3.0,   // Medium radius — all monsters within get attacked
+};

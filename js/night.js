@@ -9,6 +9,7 @@ import {
   SLOW_DURATION_MS, SHIELD_GAIN_MULTIPLIER,
   STAGE_RATIOS, PLANT_STAGES, STAGE_GROWTH_TIME, STAGE_NAMES,
   PLANT_UPGRADE_STAT_MULT,
+  ATTACK_RANGE,
   gameConfig, plantLibrary,
   PLAYER_BASE_CARRY, ZONE_BASE_SLOTS,
 } from "./config.js";
@@ -262,18 +263,28 @@ function doPlantAttacks(ts) {
     if (ts - plant.lastAttackTime < plant.attackInterval) continue;
     plant.lastAttackTime = ts;
 
-    const lane = plant.lane;
     if (plant.slowTurns > 0) plant.slowTurns -= 1;
 
-    const laneMs = gs.monsters.filter(function(m) { return !m.dead && m.lane === lane; });
-    if (!laneMs.length) continue;
+    // Plant position: lane (x), Y_ROW[row] (y)
+    const px = plant.lane;
+    const py = Y_ROW[plant.row] || Y_ROW[0];
+    const range = ATTACK_RANGE[plant.attackMode] || ATTACK_RANGE.ranged;
+
+    // Find all alive monsters within attack range
+    const inRange = gs.monsters.filter(function(m) {
+      if (m.dead) return false;
+      const dx = px - m.lane;
+      const dy = py - m.y;
+      return Math.sqrt(dx * dx + dy * dy) <= range;
+    });
+    if (!inRange.length) continue;
 
     // Target closest monster (highest y value = nearest to plants)
-    const target = laneMs.reduce(function(a, b) { return a.y > b.y ? a : b; });
+    const target = inRange.reduce(function(a, b) { return a.y > b.y ? a : b; });
 
     if (plant.attackMode === "area") {
-      // Area: attack all monsters in lane
-      laneMs.forEach(function(mt) { plantAttack(plant, mt, ts, mt === target); });
+      // Area: attack all monsters within range
+      inRange.forEach(function(mt) { plantAttack(plant, mt, ts, mt === target); });
     } else {
       plantAttack(plant, target, ts, true);
     }
