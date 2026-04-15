@@ -202,7 +202,7 @@ export function renderGrid() {
       // Level badge
       const levelBadge = (plant.plantLevel || 0) > 0 ? '<div class="slot-level-badge">Lv.' + plant.plantLevel + '</div>' : '';
 
-      // Upgrade button (only during dusk phase when plants can be managed)
+      // Upgrade button on plant card
       const upgradeCost = getPlantUpgradeCost(plant.plantLevel || 0);
       const canAfford = gs.gold >= upgradeCost;
       const upgradeBtn = '<button class="slot-upgrade-btn" data-slot="' + i + '"' +
