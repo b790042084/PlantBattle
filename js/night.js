@@ -3,7 +3,7 @@
 import {
   waveList, monsterTypes,
   ROUND_SCALE_FACTOR, LANES, ROWS, SLOTS,
-  Y_ROW, Y_BASE, MONSTER_ZONE_H, PLANTING_ROW_H,
+  Y_ROW, Y_CRYSTAL, Y_BASE, MONSTER_ZONE_H, PLANTING_ROW_H,
   COMBAT_TICK, POISON_TICK, GOLD_TICK_MS,
   DEFENSE_REDUCTION, POISON_DMG_MULTIPLIER, POISON_DURATION_BONUS,
   SLOW_DURATION_MS, SHIELD_GAIN_MULTIPLIER,
@@ -76,7 +76,15 @@ export function startNight() {
   if (elCollectHint) elCollectHint.style.display = "none";
   // Add dark fog over collection zone
   elCollect.classList.add("fog-active");
+
+  // Initialize crystal barrier
+  const crystalMult = Math.pow(gameConfig.crystalUpgradeHpMult, gs.crystal.level);
+  gs.crystal.maxHp = Math.floor(gameConfig.crystalBaseHp * crystalMult);
+  gs.crystal.hp = gs.crystal.maxHp;
+
   updateHUD();
+  renderCrystal();
+
   var nightMsg = "════ 夜晚开始！本关共 " + gs.mQueue.length + " 只怪物（第 " + gs.round + " 关 / 共 " + waveList.length + " 关）";
   if (gameConfig.nightDuration > 0) {
     nightMsg += "，限时 " + gameConfig.nightDuration + " 秒";
@@ -118,11 +126,20 @@ function nightLoop(ts) {
       } else {
         monsterAttack(m, target, ts, slotIdx);
       }
+    } else if (m.eatingCrystal) {
+      // Monster is attacking crystal
+      if (gs.crystal.hp <= 0) {
+        m.eatingCrystal = false;
+        if (m.el) m.el.classList.remove("eating");
+      } else {
+        monsterAttackCrystal(m, ts);
+      }
     } else {
       const effectiveSpeed = ts < m.slowUntil ? m.speed * 0.35 : m.speed;
       m.y += effectiveSpeed * dt;
 
       let blocked = false;
+      // Check if blocked by plants
       for (let r = 0; r < activeRows; r++) {
         if (m.y >= Y_ROW[r]) {
           const slotIdx = r * activeCols + m.lane;
@@ -138,13 +155,31 @@ function nightLoop(ts) {
         }
       }
 
+      // Check if reached crystal
+      if (!blocked && m.y >= Y_CRYSTAL && gs.crystal.hp > 0) {
+        m.y = Y_CRYSTAL;
+        m.eatingCrystal = true;
+        if (m.el) m.el.classList.add("eating");
+        blocked = true;
+      }
+
+      // Check if passed crystal and reached base (crystal destroyed)
       if (!blocked && m.y >= Y_BASE) {
         m.y    = Y_BASE;
         m.dead = true;
-        gs.lives -= 1;
-        updateHUD();
-        addLog("⚠ " + m.name + " 穿越了防线！剩余生命：" + gs.lives, "crit");
         if (m.el) { m.el.remove(); m.el = null; }
+
+        // If crystal is destroyed and zombie reaches base, level fails
+        if (gs.crystal.hp <= 0) {
+          addLog("💥 " + m.name + " 突破了水晶防线！关卡挑战失败！", "crit");
+          levelFailed();
+          return;
+        } else {
+          // Should not happen, but fallback
+          gs.lives -= 1;
+          updateHUD();
+          addLog("⚠ " + m.name + " 穿越了防线！剩余生命：" + gs.lives, "crit");
+        }
       }
     }
   }
@@ -176,6 +211,7 @@ function nightLoop(ts) {
 
   updateMonsterPositions();
   renderGrid();
+  renderCrystal();
 
   if (gs.monsters.length === 0 && gs.mQueue.length === 0) { endNight(); return; }
 
@@ -257,6 +293,26 @@ function monsterAttack(m, plant, ts, slotIdx) {
     addLog(plant.name + " 被击倒了！进入休眠状态…", "crit");
     renderGrid();
   }
+}
+
+// ─────────────────── Monster attacks crystal ─────────
+function monsterAttackCrystal(m, ts) {
+  if (ts - m.lastAttack < m.attackInterval) return;
+  m.lastAttack = ts;
+
+  const dmg = m.atk;
+  gs.crystal.hp = Math.max(0, gs.crystal.hp - dmg);
+
+  addLog(m.name + " 攻击水晶 -" + dmg + " （剩余 " + gs.crystal.hp + "/" + gs.crystal.maxHp + "）", "hit");
+
+  if (gs.crystal.hp <= 0) {
+    addLog("💔 水晶被摧毁了！僵尸即将突破防线！", "crit");
+    m.eatingCrystal = false;
+    if (m.el) m.el.classList.remove("eating");
+  }
+
+  updateHUD();
+  renderCrystal();
 }
 
 // ─────────────────── Plant attacks monsters ──────────
@@ -469,6 +525,33 @@ function fireProjFx(plant, monster) {
   }
 }
 
+// ─────────────────── Render Crystal ──────────────────
+function renderCrystal() {
+  let crystalEl = elBattleArea.querySelector(".crystal-barrier");
+
+  if (gs.phase !== "night" || gs.crystal.hp <= 0) {
+    // Remove crystal if not in night phase or destroyed
+    if (crystalEl) crystalEl.remove();
+    return;
+  }
+
+  if (!crystalEl) {
+    crystalEl = document.createElement("div");
+    crystalEl.className = "crystal-barrier";
+    elBattleArea.appendChild(crystalEl);
+  }
+
+  const crystalY = yToPx(Y_CRYSTAL);
+  crystalEl.style.top = crystalY + "px";
+
+  const hpPercent = Math.max(0, gs.crystal.hp / gs.crystal.maxHp) * 100;
+  crystalEl.innerHTML =
+    '<div class="crystal-icon">💎</div>' +
+    '<div class="crystal-label">水晶防线</div>' +
+    '<div class="crystal-hpbar"><div class="crystal-hpfill" style="width:' + hpPercent + '%"></div></div>' +
+    '<div class="crystal-hp">' + gs.crystal.hp + ' / ' + gs.crystal.maxHp + '</div>';
+}
+
 // ─────────────────── Night End / Victory / Game Over ─
 function victory() {
   if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
@@ -478,6 +561,19 @@ function victory() {
   gs.phase = "victory";
   updateHUD();
   addLog("🏆 恭喜通关！全部 " + waveList.length + " 关怪物已击败！最终分数：" + gs.score, "end");
+}
+
+function levelFailed() {
+  if (gs.nightHandle) { clearTimeout(gs.nightHandle); gs.nightHandle = null; }
+  if (gs.animId) { cancelAnimationFrame(gs.animId); gs.animId = null; }
+  elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
+  gs.monsters = [];
+  gs.mQueue = [];
+  gs.phase = "idle";
+  updateHUD();
+  addLog("❌ 第 " + gs.round + " 关挑战失败！水晶被摧毁，僵尸突破了防线。", "crit");
+  addLog("点击「开始游戏」从第 " + gs.round + " 关重新开始挑战。", "round");
+  // Don't advance round, stay at current level
 }
 
 export function endNight() {

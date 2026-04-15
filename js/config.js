@@ -105,6 +105,9 @@ export const gameConfig = {
   plantUpgradeCostBase: 30,
   plantUpgradeCostMult: 1.5,
   plantUpgradeStatMult: 0.15,
+  crystalBaseHp: 500,
+  crystalUpgradeCost: [100, 200, 350, 550, 800],
+  crystalUpgradeHpMult: 1.5,
 };
 
 export function sanitizeGameConfig(c) {
@@ -131,6 +134,9 @@ export function sanitizeGameConfig(c) {
   c.plantUpgradeCostBase = Math.max(1,   Math.floor(toNum(c.plantUpgradeCostBase, 30)));
   c.plantUpgradeCostMult = Math.max(1.0, toNum(c.plantUpgradeCostMult, 1.5));
   c.plantUpgradeStatMult = Math.max(0.01, toNum(c.plantUpgradeStatMult, 0.15));
+  c.crystalBaseHp = Math.max(100, Math.floor(toNum(c.crystalBaseHp, 500)));
+  if (!Array.isArray(c.crystalUpgradeCost)) c.crystalUpgradeCost = [100, 200, 350, 550, 800];
+  c.crystalUpgradeHpMult = Math.max(1.0, toNum(c.crystalUpgradeHpMult, 1.5));
 }
 sanitizeGameConfig(gameConfig);
 
@@ -143,6 +149,7 @@ export const MONSTER_ZONE_H    = 130;
 export const PLANTING_ROW_H    = 130;
 export const BATTLE_H          = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
 export const Y_ROW                  = [1.0, 2.0];
+export const Y_CRYSTAL              = 2.5;  // Crystal position between planting zone and base
 export const Y_BASE                 = 3.0;
 export const ROUND_SCALE_FACTOR     = 0.15;  // HP/ATK difficulty increase per round
 export const DEFENSE_REDUCTION      = 0.45;  // fraction of plant DEF applied to monster ATK

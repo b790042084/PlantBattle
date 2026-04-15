@@ -1232,3 +1232,76 @@ label {
 #logView .log-panel #log {
   height: 60vh;
 }
+
+/* ===== CRYSTAL BARRIER ===== */
+.crystal-barrier {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 15;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(100, 200, 255, 0.15) 20%,
+    rgba(100, 200, 255, 0.25) 50%,
+    rgba(100, 200, 255, 0.15) 80%,
+    transparent 100%);
+  border-top: 2px solid rgba(100, 200, 255, 0.5);
+  border-bottom: 2px solid rgba(100, 200, 255, 0.5);
+  animation: crystal-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes crystal-shimmer {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 8px rgba(100, 200, 255, 0.4)); }
+  50% { filter: brightness(1.2) drop-shadow(0 0 12px rgba(100, 200, 255, 0.7)); }
+}
+
+.crystal-icon {
+  font-size: 24px;
+  line-height: 1;
+  animation: crystal-pulse 2s ease-in-out infinite;
+}
+
+@keyframes crystal-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.crystal-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64c8ff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  margin-top: 2px;
+}
+
+.crystal-hpbar {
+  width: 80%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 3px;
+  border: 1px solid rgba(100, 200, 255, 0.3);
+}
+
+.crystal-hpfill {
+  height: 100%;
+  background: linear-gradient(90deg, #64c8ff, #a0e0ff);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 6px rgba(100, 200, 255, 0.8);
+}
+
+.crystal-hp {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  margin-top: 2px;
+}
+
