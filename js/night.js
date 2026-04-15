@@ -4,10 +4,13 @@ import {
   waveList, monsterTypes,
   ROUND_SCALE_FACTOR, LANES, ROWS, SLOTS,
   Y_ROW, Y_BASE, MONSTER_ZONE_H, PLANTING_ROW_H,
-  COMBAT_TICK, POISON_TICK,
+  COMBAT_TICK, POISON_TICK, GOLD_TICK_MS,
   DEFENSE_REDUCTION, POISON_DMG_MULTIPLIER, POISON_DURATION_BONUS,
   SLOW_DURATION_MS, SHIELD_GAIN_MULTIPLIER,
-  gameConfig,
+  STAGE_RATIOS, PLANT_STAGES, STAGE_GROWTH_TIME, STAGE_NAMES,
+  PLANT_UPGRADE_STAT_MULT,
+  gameConfig, plantLibrary,
+  PLAYER_BASE_CARRY, ZONE_BASE_SLOTS,
 } from "./config.js";
 import { gs, elCollect, elCollectHint, elBattleArea, elPlantingGrid } from "./state.js";
 import { uid, escHtml } from "./utils.js";
@@ -37,7 +40,7 @@ function buildQueue() {
         speed:          t.speed,
         attackInterval: t.attackInterval,
         reward:         t.reward,
-        lane:           Math.floor(Math.random() * LANES),
+        lane:           Math.floor(Math.random() * Math.min(gs.activeSlots, LANES)),
         y:              0,
         eating:         false,
         eatRow:         -1,
@@ -67,6 +70,7 @@ export function startNight() {
   gs.lastFrame  = performance.now();
   gs.lastCombat = performance.now();
   gs.lastPoison = performance.now();
+  gs.lastGoldTick = performance.now();
   if (elCollectHint) elCollectHint.style.display = "none";
   // Add dark fog over collection zone
   elCollect.classList.add("fog-active");
@@ -95,12 +99,14 @@ function nightLoop(ts) {
   }
 
   // Move / eat monsters
+  const activeCols = Math.min(gs.activeSlots, LANES);
+  const activeRows = Math.ceil(gs.activeSlots / activeCols);
   for (let mi = 0; mi < gs.monsters.length; mi++) {
     const m = gs.monsters[mi];
     if (m.dead) continue;
 
     if (m.eating) {
-      const slotIdx = m.eatRow * LANES + m.lane;
+      const slotIdx = m.eatRow * activeCols + m.lane;
       const target  = gs.grid[slotIdx];
       if (!target || target.hp <= 0) {
         m.eating  = false;
@@ -116,9 +122,9 @@ function nightLoop(ts) {
       m.y += effectiveSpeed * dt;
 
       let blocked = false;
-      for (let r = 0; r < ROWS; r++) {
+      for (let r = 0; r < activeRows; r++) {
         if (m.y >= Y_ROW[r]) {
-          const slotIdx = r * LANES + m.lane;
+          const slotIdx = r * activeCols + m.lane;
           const plant   = gs.grid[slotIdx];
           if (plant && plant.hp > 0) {
             m.y      = Y_ROW[r];
@@ -149,6 +155,13 @@ function nightLoop(ts) {
     doPlantAttacks(ts);
   }
 
+  // Gold generation and plant growth per second
+  if (ts - gs.lastGoldTick >= GOLD_TICK_MS) {
+    gs.lastGoldTick = ts;
+    doGoldGeneration();
+    doPlantGrowth();
+  }
+
   // Poison ticks
   if (ts - gs.lastPoison >= POISON_TICK) {
     gs.lastPoison = ts;
@@ -171,10 +184,11 @@ function nightLoop(ts) {
 
 // ─────────────────── Spawn Monster ───────────────────
 function doSpawn(m) {
+  const activeCols = Math.min(gs.activeSlots, LANES);
   const el = document.createElement("div");
   el.className  = "monster";
   el.dataset.id = m.id;
-  el.style.left = ((m.lane + 0.5) / LANES * 100) + "%";
+  el.style.left = ((m.lane + 0.5) / activeCols * 100) + "%";
   el.style.top  = "0px";
   el.innerHTML  =
     '<div class="monster-emoji">'  + m.emoji          + "</div>" +
@@ -241,13 +255,14 @@ function monsterAttack(m, plant, ts, slotIdx) {
 
 // ─────────────────── Plant attacks monsters ──────────
 function doPlantAttacks(ts) {
-  for (let i = 0; i < SLOTS; i++) {
+  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0) continue;
     if (ts - plant.lastAttackTime < plant.attackInterval) continue;
     plant.lastAttackTime = ts;
 
-    const lane = i % LANES;
+    const lane = plant.lane;
     if (plant.slowTurns > 0) plant.slowTurns -= 1;
 
     const laneMs = gs.monsters.filter(function(m) { return !m.dead && m.lane === lane; });
@@ -297,8 +312,9 @@ function plantAttack(plant, target, ts, fireFx) {
     target.dead = true;
     if (target.eating) { target.eating = false; target.eatRow = -1; }
     gs.score += (target.reward || 10);
+    gs.gold  += (target.reward || 10);
     updateHUD();
-    addLog("✨ " + plant.name + " 击败了 " + target.name + "！+" + (target.reward || 10) + "分", "end");
+    addLog("✨ " + plant.name + " 击败了 " + target.name + "！+" + (target.reward || 10) + "分/💰", "end");
   }
 }
 
@@ -335,9 +351,78 @@ function doPoison() {
       m.dead = true;
       if (m.eating) { m.eating = false; m.eatRow = -1; }
       gs.score += (m.reward || 10);
+      gs.gold  += (m.reward || 10);
       updateHUD();
-      addLog(m.name + " 因中毒倒下！+" + (m.reward || 10) + "分", "end");
+      addLog(m.name + " 因中毒倒下！+" + (m.reward || 10) + "分/💰", "end");
     }
+  }
+}
+
+// ─────────────────── Gold Generation ─────────────────
+function doGoldGeneration() {
+  let totalGold = 0;
+  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  for (let i = 0; i < totalSlots; i++) {
+    const plant = gs.grid[i];
+    if (!plant || plant.hp <= 0) continue;
+    const pDef = plantLibrary[plant.plantIdx];
+    const stageIdx = (plant.stage || PLANT_STAGES) - 1;
+    const stageRatio = STAGE_RATIOS[stageIdx] || 1;
+    const goldAmount = Math.floor((pDef.goldPerSec || 0) * stageRatio);
+    if (goldAmount > 0) totalGold += goldAmount;
+  }
+  if (totalGold > 0) {
+    gs.gold += totalGold;
+    updateHUD();
+  }
+}
+
+// ─────────────────── Plant Growth ────────────────────
+function doPlantGrowth() {
+  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  let grew = false;
+  for (let i = 0; i < totalSlots; i++) {
+    const plant = gs.grid[i];
+    if (!plant || plant.hp <= 0) continue;
+    if ((plant.stage || PLANT_STAGES) >= PLANT_STAGES) continue; // Already at max stage
+
+    plant.growthTimer = (plant.growthTimer || 0) + 1;
+    if (plant.growthTimer >= STAGE_GROWTH_TIME) {
+      plant.growthTimer = 0;
+      plant.stage = (plant.stage || 1) + 1;
+      const newStageIdx = plant.stage - 1;
+      const newRatio = STAGE_RATIOS[newStageIdx] || 1;
+      const pDef = plantLibrary[plant.plantIdx];
+      const levelMult = 1 + (plant.plantLevel || 0) * PLANT_UPGRADE_STAT_MULT;
+
+      // Recalculate stats for new stage
+      const newMaxHp = Math.floor(pDef.hp * newRatio * levelMult);
+      const hpDiff = newMaxHp - plant.maxHp;
+      plant.maxHp = newMaxHp;
+      plant.hp = Math.min(plant.maxHp, plant.hp + Math.max(0, hpDiff)); // Gain the HP difference
+      plant.atk = Math.floor(pDef.atk * newRatio * levelMult);
+      plant.df = Math.floor(pDef.df * newRatio * levelMult);
+
+      addLog(plant.name + " 成长为 " + STAGE_NAMES[newStageIdx] + "！属性提升！", "end");
+      grew = true;
+    }
+  }
+  // Also grow plants in backpack
+  for (let i = 0; i < gs.backpack.length; i++) {
+    const item = gs.backpack[i];
+    if ((item.stage || 1) >= PLANT_STAGES) continue;
+    item._growthTimer = (item._growthTimer || 0) + 1;
+    if (item._growthTimer >= STAGE_GROWTH_TIME) {
+      item._growthTimer = 0;
+      item.stage = (item.stage || 1) + 1;
+      const pDef = plantLibrary[item.plantIdx];
+      addLog("背包中的 " + pDef.name + " 成长为 " + STAGE_NAMES[item.stage - 1] + "！", "end");
+      grew = true;
+    }
+  }
+  if (grew) {
+    renderGrid();
+    renderBackpack();
   }
 }
 
@@ -425,12 +510,24 @@ export function fullReset() {
   gs.phase       = "idle";
   gs.round       = 0;
   gs.score       = 0;
+  gs.gold        = 0;
   gs.lives       = gameConfig.initialLives;
   gs.phaseLeft   = 0;
   gs.spawned     = [];
   gs.backpack    = [];
   gs.selectedId  = null;
+  gs.carried     = [];
+  gs.lastGoldTick = 0;
+
+  // Reset player attributes
+  gs.player.maxCarry = PLAYER_BASE_CARRY;
+  gs.player.carryLevel = 0;
+
+  // Reset planting zone
+  gs.plantingZoneLevel = 0;
+  gs.activeSlots = ZONE_BASE_SLOTS;
   gs.grid        = Array(SLOTS).fill(null);
+
   gs.monsters    = [];
   gs.mQueue      = [];
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });

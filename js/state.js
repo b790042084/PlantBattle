@@ -1,6 +1,6 @@
 // state.js — 全局 DOM 引用与游戏状态
 
-import { SLOTS } from "./config.js";
+import { SLOTS, PLAYER_BASE_CARRY, ZONE_BASE_SLOTS } from "./config.js";
 
 // ─────────────────── DOM refs ─────────────────────────
 export const elLog           = document.getElementById("log");
@@ -46,18 +46,23 @@ export const elGameConfigBody   = document.getElementById("gameConfigBody");
 export const elGameConfigToggle = document.getElementById("gameConfigToggle");
 export const elGameConfigForm   = document.getElementById("gameConfigForm");
 
+// Gold & shop
+export const elGold             = document.getElementById("goldDisplay");
+export const elShopPlantUpgrades = document.getElementById("shopPlantUpgrades");
+
 // ─────────────────── Game State ──────────────────────
 export const gs = {
   phase:       "idle",
   round:       0,
   score:       0,
   lives:       5,
+  gold:        0,
   phaseLeft:   0,
   phaseHandle: null,
   spawnHandle: null,
 
   spawned:     [],
-  backpack:    [],
+  backpack:    [],    // { id, plantIdx, stage, plantLevel }
   selectedId:  null,
 
   grid:     Array(SLOTS).fill(null),
@@ -69,6 +74,7 @@ export const gs = {
   lastFrame:  0,
   lastCombat: 0,
   lastPoison: 0,
+  lastGoldTick: 0,
   nightHandle: null,
 
   // Player character for collection
@@ -80,6 +86,8 @@ export const gs = {
     speed: 0.8, // percentage per frame at 60fps
     isJumping: false,
     jumpProgress: 0,
+    maxCarry: PLAYER_BASE_CARRY,
+    carryLevel: 0,
   },
   keys: {},
   waves: [], // active waves in collection zone
@@ -87,6 +95,10 @@ export const gs = {
   waveHitCooldown: 0, // timestamp until which player is immune to wave damage (0 = no immunity)
   carried: [], // plants carried above player head, not yet in backpack
   currentPlantSpawnConfig: null, // Currently active plant spawn configuration
+
+  // Planting zone upgrades
+  plantingZoneLevel: 0,
+  activeSlots: ZONE_BASE_SLOTS,
 };
 
 // ─────────────────── Keyboard Controls ───────────────

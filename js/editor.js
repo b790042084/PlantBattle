@@ -34,6 +34,7 @@ const libFields = [
   { key: "skillType",  label: "技能类型", type: "select" },
   { key: "skillCoef",  label: "技能系数", type: "number", step: "0.1"  },
   { key: "skillCd",    label: "技能冷却", type: "number", step: "1"    },
+  { key: "goldPerSec", label: "每秒产金", type: "number", step: "1"    },
 ];
 
 const selectOptions = {
@@ -70,6 +71,7 @@ export function renderLibrary() {
         '<span class="lib-stat">DEF ' + p.df   + "</span>" +
         '<span class="lib-stat">'  + modeLabel(p.attackMode)       + "</span>" +
         '<span class="lib-stat">技能:' + escHtml(p.skillName) + "(" + p.skillType + ")" + "</span>" +
+        '<span class="lib-stat">💰' + (p.goldPerSec || 0) + '/s</span>' +
         '<div class="lib-actions">' +
           '<button class="ghost btn-lib-edit" data-idx="'   + i + '">编辑</button>' +
           '<button class="btn-danger btn-lib-del" data-idx="' + i + '">删除</button>' +
@@ -119,7 +121,7 @@ elLibraryList.addEventListener("click", function(evt) {
       const live = gs.grid[s];
       if (!live || live.plantIdx !== idx) continue;
       ["name","image","role","attackMode","atk","df","crit","critDmg","dodge",
-       "skillName","skillCoef","skillCd","skillType"].forEach(function(k) { live[k] = p[k]; });
+       "skillName","skillCoef","skillCd","skillType","goldPerSec"].forEach(function(k) { live[k] = p[k]; });
     }
     renderLibrary();
     renderGrid();
@@ -140,7 +142,7 @@ elLibraryList.addEventListener("click", function(evt) {
     }
     gs.backpack = gs.backpack
       .filter(function(b) { return b.plantIdx !== idx; })
-      .map(function(b)    { return { id: b.id, plantIdx: b.plantIdx > idx ? b.plantIdx - 1 : b.plantIdx }; });
+      .map(function(b)    { return { id: b.id, plantIdx: b.plantIdx > idx ? b.plantIdx - 1 : b.plantIdx, stage: b.stage || 1, plantLevel: b.plantLevel || 0 }; });
     renderLibrary();
     renderGrid();
     renderBackpack();
@@ -154,6 +156,7 @@ document.getElementById("btnAddPlant").addEventListener("click", function() {
     name: "新植物", image: "", role: "attacker", attackMode: "ranged",
     hp: 1000, atk: 150, df: 30, crit: 0.12, critDmg: 1.5, dodge: 0,
     skillName: "技能", skillCoef: 1.5, skillCd: 2, skillType: "normal",
+    goldPerSec: 3,
   };
   sanitizePlant(newP);
   plantLibrary.push(newP);

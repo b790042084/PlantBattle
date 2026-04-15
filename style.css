@@ -848,3 +848,142 @@ label {
   font-family: inherit;
   text-align: center;
 }
+
+/* ===== SHOP SECTION ===== */
+.shop-section {
+  margin-top: 12px;
+  background: var(--card);
+  border: 2px solid #d8c8b8;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+.shop-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.shop-header h3 { font-size: 15px; }
+.shop-hint { font-size: 12px; color: var(--muted); }
+.shop-content { display: flex; flex-direction: column; gap: 12px; }
+.shop-category h4 { font-size: 13px; color: #4a5a4a; margin-bottom: 6px; }
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f8f5ef;
+  border: 1.5px solid #e0d8c8;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 4px;
+}
+.shop-item-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.shop-item-name { font-weight: 700; font-size: 13px; color: #2a3a2a; }
+.shop-item-desc { font-size: 11px; color: var(--muted); }
+.shop-item-level { font-size: 11px; color: #5a6a5a; font-weight: 600; }
+.shop-buy-btn {
+  background: #c09020;
+  color: #fff;
+  border: 0;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+.shop-buy-btn:hover { transform: translateY(-1px); filter: brightness(1.1); }
+.shop-buy-btn:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+  transform: none;
+  filter: none;
+}
+.shop-plant-list { display: flex; flex-direction: column; gap: 4px; }
+.shop-plant-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f8ef;
+  border: 1.5px solid #d4e0c0;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.shop-plant-item img {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid #fff; object-fit: cover; background: #eee;
+}
+.shop-plant-info { flex: 1; }
+.shop-plant-name { font-size: 12px; font-weight: 700; color: #2a4a2a; }
+.shop-plant-stats { font-size: 10px; color: var(--muted); }
+
+/* ===== GROWTH STAGE BADGE ===== */
+.bp-stage {
+  font-size: 9px;
+  color: #7a5500;
+  background: #fff3d0;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-top: 2px;
+  display: inline-block;
+}
+.bp-stage.stage-4 { color: #006020; background: #d4f8d4; }
+.bp-level {
+  font-size: 9px;
+  color: #4a00a0;
+  background: #f0e0ff;
+  border-radius: 999px;
+  padding: 1px 6px;
+  margin-top: 1px;
+  display: inline-block;
+}
+.slot-stage-badge {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  font-size: 8px;
+  background: #fff3d0cc;
+  color: #7a5500;
+  border-radius: 999px;
+  padding: 1px 4px;
+  font-weight: 700;
+}
+.slot-stage-badge.stage-full { background: #d4f8d4cc; color: #006020; }
+.slot-gold-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 3px;
+  font-size: 8px;
+  background: #fff8d0cc;
+  color: #a08000;
+  border-radius: 999px;
+  padding: 1px 4px;
+  font-weight: 700;
+}
+.slot-level-badge {
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  font-size: 8px;
+  background: #f0e0ffcc;
+  color: #4a00a0;
+  border-radius: 999px;
+  padding: 1px 4px;
+  font-weight: 700;
+}
+
+/* Gold animation */
+@keyframes goldPop {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-20px) scale(0.6); opacity: 0; }
+}
+.gold-pop {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 700;
+  color: #c09020;
+  pointer-events: none;
+  z-index: 30;
+  animation: goldPop 0.8s ease-out forwards;
+}
