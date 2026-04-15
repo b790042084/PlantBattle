@@ -70,7 +70,8 @@ export function updateHUD() {
 }
 
 // ─────────────────── Drag state ──────────────────────
-let _dragBpId = null; // backpack item id being dragged
+let _dragBpId = null;      // backpack item id being dragged
+let _dragGridSlot = null;  // grid slot index being dragged (for grid-to-grid feed)
 
 // ─────────────────── Feed logic (shared by drag-drop) ─
 export function feedPlant(slotIdx, backpackId) {
@@ -137,6 +138,43 @@ function canFeedPlant(backpackItem, plant) {
   return true;
 }
 
+// Check if a grid plant can feed another grid plant
+function canGridFeedPlant(sourcePlant, targetPlant) {
+  if (!sourcePlant || !targetPlant) return false;
+  if (targetPlant.isDormant || sourcePlant.isDormant) return false;
+  if (sourcePlant.plantIdx !== targetPlant.plantIdx) return false;
+  if ((sourcePlant.stage || 1) !== (targetPlant.stage || 1)) return false;
+  if ((targetPlant.stage || 1) >= PLANT_STAGES) return false;
+  if (targetPlant.isBreakingThrough) return false;
+  return true;
+}
+
+// Feed one grid plant into another (consuming the source)
+function feedPlantFromGrid(targetSlotIdx, sourceSlotIdx) {
+  const target = gs.grid[targetSlotIdx];
+  const source = gs.grid[sourceSlotIdx];
+  if (!target || !source) return false;
+  if (!canGridFeedPlant(source, target)) return false;
+
+  const plantStage = target.stage || 1;
+  const expNeeded = getBreakthroughExp()[plantStage - 1] || 3;
+  target.breakthroughExp = (target.breakthroughExp || 0) + 1;
+
+  // Remove the source plant from grid
+  gs.grid[sourceSlotIdx] = null;
+
+  if (target.breakthroughExp >= expNeeded) {
+    target.isBreakingThrough = true;
+    target.breakthroughTimer = getBreakthroughTime();
+    target.stage = plantStage + 1;
+    addLog("🔥 " + target.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
+  } else {
+    addLog("🌿 喂养 " + target.name + " +1 突破经验（" + target.breakthroughExp + "/" + expNeeded + "）", "end");
+  }
+  renderGrid();
+  return true;
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -152,10 +190,13 @@ export function initGrid() {
     s.className    = "plant-slot";
     s.dataset.slot = i;
     s.addEventListener("click", onSlotClick);
-    // Drag-drop: allow dropping backpack plants onto grid slots
+    // Drag-drop: allow dropping backpack plants or grid plants onto grid slots
     s.addEventListener("dragover", onSlotDragOver);
     s.addEventListener("dragleave", onSlotDragLeave);
     s.addEventListener("drop", onSlotDrop);
+    // Grid plant drag: start dragging a grid plant for grid-to-grid feed
+    s.addEventListener("dragstart", onSlotDragStart);
+    s.addEventListener("dragend", onSlotDragEnd);
     elPlantingGrid.appendChild(s);
   }
   renderGrid();
@@ -242,7 +283,15 @@ export function renderGrid() {
           upgradePlantOnGrid(i);
         });
       }
+
+      // Make grid plant draggable for grid-to-grid feed
+      if (!plant.isDormant) {
+        el.draggable = true;
+      } else {
+        el.draggable = false;
+      }
     } else {
+      el.draggable = false;
       const col = i % cols + 1;
       const row = Math.floor(i / cols) + 1;
       el.innerHTML = '<div class="slot-empty">' + (canHL ? "点击\n放置" : col + "-" + row) + "</div>";
@@ -317,11 +366,45 @@ export function onSlotClick(e) {
 }
 
 // ─────────────────── Drag-drop handlers ──────────────
+function onSlotDragStart(e) {
+  const idx = parseInt(e.currentTarget.dataset.slot, 10);
+  const plant = gs.grid[idx];
+  if (!plant || plant.isDormant) {
+    e.preventDefault();
+    return;
+  }
+  _dragGridSlot = idx;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", "grid:" + idx);
+  e.currentTarget.classList.add("slot-dragging");
+}
+
+function onSlotDragEnd(e) {
+  e.currentTarget.classList.remove("slot-dragging");
+  _dragGridSlot = null;
+  elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+    s.classList.remove("slot-feed-highlight");
+    s.classList.remove("slot-highlight");
+  });
+}
+
 function onSlotDragOver(e) {
   e.preventDefault();
-  if (_dragBpId === null) return;
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
   const plant = gs.grid[idx];
+
+  // Grid-to-grid drag
+  if (_dragGridSlot !== null) {
+    if (_dragGridSlot === idx) return; // Can't drop on self
+    const source = gs.grid[_dragGridSlot];
+    if (plant && canGridFeedPlant(source, plant)) {
+      e.currentTarget.classList.add("slot-feed-highlight");
+    }
+    return;
+  }
+
+  // Backpack-to-grid drag
+  if (_dragBpId === null) return;
   if (!plant) {
     // Allow drop onto empty slot for placement
     e.currentTarget.classList.add("slot-highlight");
@@ -343,10 +426,21 @@ function onSlotDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove("slot-feed-highlight");
   e.currentTarget.classList.remove("slot-highlight");
-  if (_dragBpId === null) return;
 
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
   const plant = gs.grid[idx];
+
+  // Grid-to-grid drop
+  if (_dragGridSlot !== null) {
+    if (_dragGridSlot !== idx && plant) {
+      feedPlantFromGrid(idx, _dragGridSlot);
+    }
+    _dragGridSlot = null;
+    return;
+  }
+
+  // Backpack-to-grid drop
+  if (_dragBpId === null) return;
 
   if (plant) {
     // Try to feed

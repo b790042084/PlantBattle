@@ -1069,6 +1069,18 @@ label {
   background: #fff8e8 !important;
 }
 
+/* Grid plant drag state */
+.plant-slot.has-plant[draggable="true"] {
+  cursor: grab;
+}
+.plant-slot.has-plant[draggable="true"]:active {
+  cursor: grabbing;
+}
+.plant-slot.slot-dragging {
+  opacity: 0.4;
+  box-shadow: 0 0 0 2px #f5a623;
+}
+
 /* Backpack drag state */
 .bp-item[draggable="true"] {
   cursor: grab;
