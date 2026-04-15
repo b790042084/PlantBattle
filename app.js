@@ -79,12 +79,20 @@ function sanitizeMonster(m) {
 }
 monsterTypes.forEach(sanitizeMonster);
 
+// ─────────────────── Game Config ─────────────────────
+const gameConfig = { dayDuration: 30, duskDuration: 15, nightDuration: 0, initialLives: 5 };
+function sanitizeGameConfig(c) {
+  c.dayDuration   = Math.max(5,  Math.floor(toNum(c.dayDuration,   30)));
+  c.duskDuration  = Math.max(5,  Math.floor(toNum(c.duskDuration,  15)));
+  c.nightDuration = Math.max(0,  Math.floor(toNum(c.nightDuration,  0)));
+  c.initialLives  = Math.max(1,  Math.floor(toNum(c.initialLives,   5)));
+}
+sanitizeGameConfig(gameConfig);
+
 // ─────────────────── Constants ───────────────────────
 const LANES             = 5;
 const ROWS              = 2;
 const SLOTS             = LANES * ROWS;
-const DAY_DURATION      = 30;
-const DUSK_DURATION     = 15;
 const SPAWN_INTERVAL    = 5500;
 const MAX_SPAWNED       = 5;
 const COMBAT_TICK       = 900;
@@ -191,6 +199,11 @@ const elRoundConfigBody   = document.getElementById("roundConfigBody");
 const elRoundConfigToggle = document.getElementById("roundConfigToggle");
 const elRoundConfigForm   = document.getElementById("roundConfigForm");
 
+// Game basic config
+const elGameConfigBody   = document.getElementById("gameConfigBody");
+const elGameConfigToggle = document.getElementById("gameConfigToggle");
+const elGameConfigForm   = document.getElementById("gameConfigForm");
+
 // Show current version in the HUD
 if (elVersion) elVersion.textContent = APP_VERSION;
 
@@ -217,6 +230,7 @@ const gs = {
   lastFrame:  0,
   lastCombat: 0,
   lastPoison: 0,
+  nightHandle: null,
 
   // Player character for collection
   player: {
@@ -770,7 +784,7 @@ let waveSpawnInterval = null;
 
 function startDay() {
   gs.phase   = "day";
-  gs.phaseLeft = DAY_DURATION;
+  gs.phaseLeft = gameConfig.dayDuration;
   gs.spawned = [];
   gs.waves = [];
   gs.carried = [];
@@ -831,7 +845,7 @@ function startDay() {
   addLog("[PLANT] 植物刷新配置: " + gs.currentPlantSpawnConfig.name + " (" + gs.currentPlantSpawnConfig.spawnInterval + "ms)", "plant");
 
   updateHUD();
-  addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + DAY_DURATION + " 秒收集时间 ════", "round");
+  addLog("════ 第 " + gs.round + " 回合 — 白天开始！" + gameConfig.dayDuration + " 秒收集时间 ════", "round");
 
   gs.phaseHandle = setInterval(function() {
     gs.phaseLeft -= 1;
@@ -889,9 +903,9 @@ function endDay() {
 // ─────────────────── Dusk Phase ──────────────────────
 function startDusk() {
   gs.phase = "dusk";
-  gs.phaseLeft = DUSK_DURATION;
+  gs.phaseLeft = gameConfig.duskDuration;
   updateHUD();
-  addLog("════ 黄昏时分！摆放植物，" + DUSK_DURATION + " 秒后夜晚降临 ════", "round");
+  addLog("════ 黄昏时分！摆放植物，" + gameConfig.duskDuration + " 秒后夜晚降临 ════", "round");
 
   gs.phaseHandle = setInterval(function() {
     gs.phaseLeft -= 1;
@@ -965,7 +979,13 @@ function startNight() {
   // Add dark fog over collection zone
   elCollect.classList.add("fog-active");
   updateHUD();
-  addLog("════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物 ════", "round");
+  var nightMsg = "════ 夜晚开始！本波共 " + gs.mQueue.length + " 只怪物";
+  if (gameConfig.nightDuration > 0) {
+    nightMsg += "，限时 " + gameConfig.nightDuration + " 秒";
+    gs.nightHandle = setTimeout(endNight, gameConfig.nightDuration * 1000);
+  }
+  nightMsg += " ════";
+  addLog(nightMsg, "round");
   gs.animId = requestAnimationFrame(nightLoop);
 }
 
@@ -1270,15 +1290,18 @@ function fireProjFx(plant, monster) {
 
 // ─────────────────── Night End / Game Over ────────────
 function endNight() {
+  if (gs.nightHandle) { clearTimeout(gs.nightHandle); gs.nightHandle = null; }
   if (gs.animId) { cancelAnimationFrame(gs.animId); gs.animId = null; }
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
+  gs.mQueue   = [];
   addLog("🎉 第 " + gs.round + " 回合胜利！当前分数：" + gs.score, "end");
   gs.round += 1;
   setTimeout(startDay, 2200);
 }
 
 function endGame() {
+  if (gs.nightHandle)  { clearTimeout(gs.nightHandle);   gs.nightHandle  = null; }
   if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
   if (gs.phaseHandle)  { clearInterval(gs.phaseHandle);       gs.phaseHandle  = null; }
   if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
@@ -1289,13 +1312,14 @@ function endGame() {
 
 // ─────────────────── Start / Reset ───────────────────
 function fullReset() {
+  if (gs.nightHandle)  { clearTimeout(gs.nightHandle);   gs.nightHandle  = null; }
   if (gs.animId)     { cancelAnimationFrame(gs.animId);  gs.animId     = null; }
   if (gs.phaseHandle)  { clearInterval(gs.phaseHandle);       gs.phaseHandle  = null; }
   if (gs.spawnHandle){ clearInterval(gs.spawnHandle);     gs.spawnHandle = null; }
   gs.phase       = "idle";
   gs.round       = 0;
   gs.score       = 0;
-  gs.lives       = 5;
+  gs.lives       = gameConfig.initialLives;
   gs.phaseLeft   = 0;
   gs.spawned     = [];
   gs.backpack    = [];
@@ -1336,9 +1360,10 @@ document.getElementById("btnSaveConfig").addEventListener("click", function() {
       monsterTypes:      monsterTypes, 
       waveTypes:         waveTypes,
       plantSpawnConfigs: plantSpawnConfigs,
-      roundConfig:       roundConfig
+      roundConfig:       roundConfig,
+      gameConfig:        gameConfig
     }));
-    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次怪物配置已保存到本地浏览器。", "end");
+    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次怪物配置 & 游戏基础配置已保存到本地浏览器。", "end");
   } catch(e) {
     addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
@@ -1381,6 +1406,14 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       roundConfig.allowedMonsters = Array.isArray(data.roundConfig.allowedMonsters) ? data.roundConfig.allowedMonsters : null;
       sanitizeRoundConfig(roundConfig);
       renderRoundConfig();
+    }
+    if (data.gameConfig && typeof data.gameConfig === "object") {
+      gameConfig.dayDuration   = data.gameConfig.dayDuration;
+      gameConfig.duskDuration  = data.gameConfig.duskDuration;
+      gameConfig.nightDuration = data.gameConfig.nightDuration;
+      gameConfig.initialLives  = data.gameConfig.initialLives;
+      sanitizeGameConfig(gameConfig);
+      renderGameConfig();
     }
     addLog("配置加载成功！", "end");
   } catch(e) { 
@@ -1886,6 +1919,44 @@ function renderRoundConfig() {
   });
 }
 
+elGameConfigToggle.addEventListener("click", function() {
+  const open = elGameConfigBody.style.display === "none";
+  elGameConfigBody.style.display = open ? "" : "none";
+});
+
+function renderGameConfig() {
+  elGameConfigForm.innerHTML =
+    '<label>白天时长（秒，最少5）' +
+      '<input id="gc-dayDuration" type="number" min="5" step="1" value="' + gameConfig.dayDuration + '">' +
+    '</label>' +
+    '<label>黄昏时长（秒，最少5）' +
+      '<input id="gc-duskDuration" type="number" min="5" step="1" value="' + gameConfig.duskDuration + '">' +
+    '</label>' +
+    '<label>夜晚最长时限（秒，0 = 无限制）' +
+      '<input id="gc-nightDuration" type="number" min="0" step="1" value="' + gameConfig.nightDuration + '">' +
+    '</label>' +
+    '<label>玩家初始生命值' +
+      '<input id="gc-initialLives" type="number" min="1" step="1" value="' + gameConfig.initialLives + '">' +
+    '</label>' +
+    '<div class="lib-form-actions">' +
+      '<button id="btnGameConfigSave">保存</button>' +
+    '</div>';
+
+  document.getElementById("btnGameConfigSave").addEventListener("click", function() {
+    gameConfig.dayDuration   = toNum(document.getElementById("gc-dayDuration").value,   gameConfig.dayDuration);
+    gameConfig.duskDuration  = toNum(document.getElementById("gc-duskDuration").value,  gameConfig.duskDuration);
+    gameConfig.nightDuration = toNum(document.getElementById("gc-nightDuration").value, gameConfig.nightDuration);
+    gameConfig.initialLives  = toNum(document.getElementById("gc-initialLives").value,  gameConfig.initialLives);
+    sanitizeGameConfig(gameConfig);
+    renderGameConfig();
+    addLog(
+      "游戏基础配置已更新：白天 " + gameConfig.dayDuration + "s，黄昏 " + gameConfig.duskDuration + "s，夜晚限时 " +
+      (gameConfig.nightDuration > 0 ? gameConfig.nightDuration + "s" : "无限制") +
+      "，初始生命 " + gameConfig.initialLives + "。", "end"
+    );
+  });
+}
+
 // ─────────────────── Boot ────────────────────────────
 
 function initializeGame() {
@@ -1906,6 +1977,7 @@ function initializeGame() {
   renderWaveLibrary();
   renderPlantSpawnLibrary();
   renderRoundConfig();
+  renderGameConfig();
   initGrid();
   renderBackpack();
   updateHUD();
