@@ -101,8 +101,8 @@ function nightLoop(ts) {
   }
 
   // Move / eat monsters
-  const activeCols = Math.min(gs.activeSlots, LANES);
-  const activeRows = Math.ceil(gs.activeSlots / activeCols);
+  const activeCols = LANES;
+  const activeRows = ROWS;
   for (let mi = 0; mi < gs.monsters.length; mi++) {
     const m = gs.monsters[mi];
     if (m.dead) continue;
@@ -184,7 +184,7 @@ function nightLoop(ts) {
 
 // ─────────────────── Spawn Monster ───────────────────
 function doSpawn(m) {
-  const activeCols = Math.min(gs.activeSlots, LANES);
+  const activeCols = LANES;
   const el = document.createElement("div");
   el.className  = "monster";
   el.dataset.id = m.id;
@@ -261,7 +261,7 @@ function monsterAttack(m, plant, ts, slotIdx) {
 
 // ─────────────────── Plant attacks monsters ──────────
 function doPlantAttacks(ts) {
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  const totalSlots = SLOTS;
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
@@ -377,8 +377,7 @@ function doPoison() {
 // ─────────────────── Gold Generation ─────────────────
 function doGoldGeneration() {
   let totalGold = 0;
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < SLOTS; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     const pDef = plantLibrary[plant.plantIdx];
@@ -396,9 +395,8 @@ function doGoldGeneration() {
 
 // ─────────────────── Breakthrough Timer ──────────────
 function doBreakthroughTick() {
-  const totalSlots = Math.min(gs.activeSlots, SLOTS);
   let changed = false;
-  for (let i = 0; i < totalSlots; i++) {
+  for (let i = 0; i < SLOTS; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     if (!plant.isBreakingThrough) continue;

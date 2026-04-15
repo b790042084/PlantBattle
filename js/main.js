@@ -204,6 +204,7 @@ function loadAllConfig(data) {
     gameConfig.nightDuration = data.gameConfig.nightDuration;
     gameConfig.initialLives  = data.gameConfig.initialLives;
     if (data.gameConfig.zoneBaseSlots !== undefined) gameConfig.zoneBaseSlots = data.gameConfig.zoneBaseSlots;
+    if (Array.isArray(data.gameConfig.initialUnlockedSlots)) gameConfig.initialUnlockedSlots = data.gameConfig.initialUnlockedSlots;
     if (Array.isArray(data.gameConfig.breakthroughExp)) gameConfig.breakthroughExp = data.gameConfig.breakthroughExp;
     if (data.gameConfig.breakthroughTime !== undefined) gameConfig.breakthroughTime = data.gameConfig.breakthroughTime;
     if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;

@@ -14,9 +14,6 @@ function getBackpackBtnRect() {
   return btn ? btn.getBoundingClientRect() : null;
 }
 
-// ─────────────────── Collection Zone ─────────────────
-export let elPlayer = null;
-
 export function createPlayer() {
   if (elPlayer) elPlayer.remove();
   elPlayer = document.createElement("div");
