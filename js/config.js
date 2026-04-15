@@ -125,8 +125,11 @@ export function isBlackStripe(yPercent) {
 export const PLANT_STAGES      = 4;           // Total growth stages
 export const STAGE_RATIOS      = [0.25, 0.50, 0.75, 1.0]; // Stat ratio per stage
 export const STAGE_NAMES       = ["幼苗", "成长", "成熟", "完全体"];
-export const STAGE_GROWTH_TIME = 15;          // Seconds per stage growth (while planted)
 export const GOLD_TICK_MS      = 1000;        // Gold generation interval (ms)
+
+// Breakthrough: feed same-type plants to gain EXP, then wait for breakthrough
+export const BREAKTHROUGH_EXP  = [3, 4, 5];  // EXP needed for stage 1→2, 2→3, 3→4
+export const BREAKTHROUGH_TIME = 10;          // Seconds to complete breakthrough once EXP is full
 
 export const PLAYER_BASE_CARRY   = 3;         // Default max carry capacity
 export const CARRY_UPGRADE_COST  = [50, 120, 200, 300, 500]; // Cost per carry upgrade level

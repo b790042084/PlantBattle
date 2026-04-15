@@ -7,7 +7,8 @@ import {
   COMBAT_TICK, POISON_TICK, GOLD_TICK_MS,
   DEFENSE_REDUCTION, POISON_DMG_MULTIPLIER, POISON_DURATION_BONUS,
   SLOW_DURATION_MS, SHIELD_GAIN_MULTIPLIER,
-  STAGE_RATIOS, PLANT_STAGES, STAGE_GROWTH_TIME, STAGE_NAMES,
+  STAGE_RATIOS, PLANT_STAGES, STAGE_NAMES,
+  BREAKTHROUGH_EXP, BREAKTHROUGH_TIME,
   PLANT_UPGRADE_STAT_MULT,
   ATTACK_RANGE,
   gameConfig, plantLibrary,
@@ -156,11 +157,11 @@ function nightLoop(ts) {
     doPlantAttacks(ts);
   }
 
-  // Gold generation and plant growth per second
+  // Gold generation and breakthrough timer per second
   if (ts - gs.lastGoldTick >= GOLD_TICK_MS) {
     gs.lastGoldTick = ts;
     doGoldGeneration();
-    doPlantGrowth();
+    doBreakthroughTick();
   }
 
   // Poison ticks
@@ -242,6 +243,13 @@ function monsterAttack(m, plant, ts, slotIdx) {
   }
 
   plant.hp = Math.max(0, plant.hp - dmg);
+
+  // Monster hit resets breakthrough EXP (plant failed to defend)
+  if (plant.breakthroughExp > 0 && !plant.isBreakingThrough) {
+    plant.breakthroughExp = 0;
+    addLog(plant.name + " 被攻击，突破经验值已清零！", "crit");
+  }
+
   addLog(m.name + " 攻击 " + plant.name + " -" + dmg + (plant.shield > 0 ? " (盾剩" + plant.shield + ")" : ""), "hit");
 
   if (plant.hp <= 0) {
@@ -377,8 +385,10 @@ function doGoldGeneration() {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0) continue;
     const pDef = plantLibrary[plant.plantIdx];
-    const stageIdx = (plant.stage || 1) - 1;
-    const stageRatio = STAGE_RATIOS[stageIdx] || 1;
+    // During breakthrough, use pre-breakthrough stage for gold
+    const effectiveStage = plant.isBreakingThrough ? (plant.stage || 1) - 1 : (plant.stage || 1);
+    const stageIdx = Math.max(0, effectiveStage - 1);
+    const stageRatio = STAGE_RATIOS[stageIdx] || STAGE_RATIOS[0];
     const goldAmount = Math.floor((pDef.goldPerSec || 0) * stageRatio);
     if (goldAmount > 0) totalGold += goldAmount;
   }
@@ -388,52 +398,41 @@ function doGoldGeneration() {
   }
 }
 
-// ─────────────────── Plant Growth ────────────────────
-function doPlantGrowth() {
+// ─────────────────── Breakthrough Timer ──────────────
+function doBreakthroughTick() {
   const totalSlots = Math.min(gs.activeSlots, SLOTS);
-  let grew = false;
+  let changed = false;
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0) continue;
-    if ((plant.stage || 1) >= PLANT_STAGES) continue; // Already at max stage
+    if (!plant.isBreakingThrough) continue;
 
-    plant.growthTimer = (plant.growthTimer || 0) + 1;
-    if (plant.growthTimer >= STAGE_GROWTH_TIME) {
-      plant.growthTimer = 0;
-      plant.stage = (plant.stage || 1) + 1;
-      const newStageIdx = plant.stage - 1;
+    plant.breakthroughTimer = (plant.breakthroughTimer || 0) - 1;
+    if (plant.breakthroughTimer <= 0) {
+      // Breakthrough complete — advance stage and apply new stats
+      plant.isBreakingThrough = false;
+      plant.breakthroughTimer = 0;
+      plant.breakthroughExp = 0;
+
+      const newStageIdx = (plant.stage || 1) - 1;
       const newRatio = STAGE_RATIOS[newStageIdx] || 1;
       const pDef = plantLibrary[plant.plantIdx];
       const levelMult = 1 + (plant.plantLevel || 0) * PLANT_UPGRADE_STAT_MULT;
 
-      // Recalculate stats for new stage
+      // Apply new stage stats
       const newMaxHp = Math.floor(pDef.hp * newRatio * levelMult);
       const hpDiff = newMaxHp - plant.maxHp;
       plant.maxHp = newMaxHp;
-      plant.hp = Math.min(plant.maxHp, plant.hp + Math.max(0, hpDiff)); // Gain the HP difference
+      plant.hp = Math.min(plant.maxHp, plant.hp + Math.max(0, hpDiff));
       plant.atk = Math.floor(pDef.atk * newRatio * levelMult);
       plant.df = Math.floor(pDef.df * newRatio * levelMult);
 
-      addLog(plant.name + " 成长为 " + STAGE_NAMES[newStageIdx] + "！属性提升！", "end");
-      grew = true;
+      addLog("🌟 " + plant.name + " 突破完成！进化为 " + STAGE_NAMES[newStageIdx] + "！", "end");
+      changed = true;
     }
   }
-  // Also grow plants in backpack
-  for (let i = 0; i < gs.backpack.length; i++) {
-    const item = gs.backpack[i];
-    if ((item.stage || 1) >= PLANT_STAGES) continue;
-    item._growthTimer = (item._growthTimer || 0) + 1;
-    if (item._growthTimer >= STAGE_GROWTH_TIME) {
-      item._growthTimer = 0;
-      item.stage = (item.stage || 1) + 1;
-      const pDef = plantLibrary[item.plantIdx];
-      addLog("背包中的 " + pDef.name + " 成长为 " + STAGE_NAMES[item.stage - 1] + "！", "end");
-      grew = true;
-    }
-  }
-  if (grew) {
+  if (changed) {
     renderGrid();
-    renderBackpack();
   }
 }
 

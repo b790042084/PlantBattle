@@ -987,3 +987,59 @@ label {
   z-index: 30;
   animation: goldPop 0.8s ease-out forwards;
 }
+
+/* ===== BREAKTHROUGH UI ===== */
+.slot-bt-badge {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin: 1px 4px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #6a5000;
+}
+.slot-bt-badge.bt-active {
+  color: #b04000;
+  background: #ffe0c0cc;
+  border-radius: 999px;
+  padding: 1px 5px;
+  animation: btPulse 1.2s ease-in-out infinite;
+}
+@keyframes btPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.slot-bt-bar {
+  flex: 1;
+  height: 4px;
+  background: #e0d8c8;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 30px;
+}
+.slot-bt-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f0a030, #e06010);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.slot-bt-text {
+  white-space: nowrap;
+}
+
+/* Feed-highlight when a same-type plant is selected */
+.plant-slot.slot-feed-highlight {
+  box-shadow: 0 0 0 2.5px #f0a030, inset 0 0 8px #f0a03044;
+  background: #fff8e8 !important;
+}
+
+/* Backpack feed hint */
+.bp-feed-hint {
+  font-size: 9px;
+  color: #c07010;
+  background: #fff3d0;
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-top: 1px;
+  text-align: center;
+}

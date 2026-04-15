@@ -3,6 +3,7 @@
 import {
   LANES, SLOTS, plantLibrary,
   STAGE_NAMES, STAGE_RATIOS, PLANT_STAGES,
+  BREAKTHROUGH_EXP, BREAKTHROUGH_TIME,
   PLAYER_BASE_CARRY, CARRY_UPGRADE_COST, CARRY_UPGRADE_BONUS,
   ZONE_BASE_SLOTS, ZONE_UPGRADE_COST, ZONE_UPGRADE_SLOTS,
   PLANT_UPGRADE_COST_BASE, PLANT_UPGRADE_COST_MULT, PLANT_UPGRADE_STAT_MULT,
@@ -94,10 +95,20 @@ export function renderGrid() {
     if (!el) continue;
     const plant = gs.grid[i];
     const canHL = gs.selectedId !== null && !plant && gs.phase === "dusk";
+    // Check if we can feed (selected same-type plant to an existing plant)
+    let canFeed = false;
+    if (plant && gs.selectedId !== null && gs.phase === "dusk") {
+      const selItem = gs.backpack.find(function(b) { return b.id === gs.selectedId; });
+      if (selItem && selItem.plantIdx === plant.plantIdx &&
+          (plant.stage || 1) < PLANT_STAGES && !plant.isBreakingThrough) {
+        canFeed = true;
+      }
+    }
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
-      (canHL ? " slot-highlight" : "");
+      (canHL ? " slot-highlight" : "") +
+      (canFeed ? " slot-feed-highlight" : "");
 
     if (plant) {
       const ratio = Math.max(0, plant.hp) / plant.maxHp;
@@ -117,18 +128,35 @@ export function renderGrid() {
       const stageClass = plant.stage >= PLANT_STAGES ? "stage-full" : "";
       const stageBadge = '<div class="slot-stage-badge ' + stageClass + '">' + stageName + '</div>';
 
-      // Gold per sec badge
-      const effectiveGold = Math.floor((pDef.goldPerSec || 0) * (STAGE_RATIOS[stageIdx] || 1));
+      // Gold per sec badge (use pre-breakthrough stage during breakthrough)
+      const goldStageIdx = plant.isBreakingThrough ? Math.max(0, stageIdx - 1) : stageIdx;
+      const effectiveGold = Math.floor((pDef.goldPerSec || 0) * (STAGE_RATIOS[goldStageIdx] || STAGE_RATIOS[0]));
       const goldBadge = effectiveGold > 0 ? '<div class="slot-gold-badge">💰' + effectiveGold + '/s</div>' : '';
 
       // Level badge
       const levelBadge = (plant.plantLevel || 0) > 0 ? '<div class="slot-level-badge">Lv.' + plant.plantLevel + '</div>' : '';
+
+      // Breakthrough EXP / progress badge
+      let breakthroughBadge = '';
+      const currentStage = plant.stage || 1;
+      if (plant.isBreakingThrough) {
+        // Show breakthrough countdown
+        breakthroughBadge = '<div class="slot-bt-badge bt-active">⏳突破 ' + (plant.breakthroughTimer || 0) + 's</div>';
+      } else if (currentStage < PLANT_STAGES) {
+        // Show EXP progress
+        const expNeeded = BREAKTHROUGH_EXP[currentStage - 1] || 3;
+        const exp = plant.breakthroughExp || 0;
+        breakthroughBadge = '<div class="slot-bt-badge">' +
+          '<div class="slot-bt-bar"><div class="slot-bt-fill" style="width:' + (exp / expNeeded * 100) + '%"></div></div>' +
+          '<span class="slot-bt-text">' + exp + '/' + expNeeded + '</span></div>';
+      }
 
       el.innerHTML =
         shieldBadge + stageBadge + goldBadge + levelBadge +
         '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
           '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
         '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
+        breakthroughBadge +
         '<div class="slot-hpbar"><div class="slot-hpfill ' + cls + '" style="width:' + (ratio*100) + '%"></div></div>' +
         '<div class="slot-hptext">' + Math.max(0,plant.hp) + "/" + plant.maxHp +
           (statusParts.length ? " · " + statusParts.join(" ") : "") + "</div>";
@@ -146,8 +174,48 @@ export function onSlotClick(e) {
 
   if (plant) {
     if (gs.phase === "dusk") {
+      // If we have a selected backpack item of the SAME type → feed for breakthrough EXP
+      if (gs.selectedId !== null) {
+        const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
+        if (bpIdx !== -1) {
+          const feedItem = gs.backpack[bpIdx];
+          if (feedItem.plantIdx === plant.plantIdx) {
+            // Same plant type → feed
+            const currentStage = plant.stage || 1;
+            if (currentStage >= PLANT_STAGES) {
+              addLog(plant.name + " 已经是完全体，无法继续喂养！", "dodge");
+              return;
+            }
+            if (plant.isBreakingThrough) {
+              addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
+              return;
+            }
+            const expNeeded = BREAKTHROUGH_EXP[currentStage - 1] || 3;
+            plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
+
+            // Consume the fed plant from backpack
+            gs.backpack.splice(bpIdx, 1);
+            gs.selectedId = null;
+
+            if (plant.breakthroughExp >= expNeeded) {
+              // EXP full → start breakthrough timer
+              plant.isBreakingThrough = true;
+              plant.breakthroughTimer = BREAKTHROUGH_TIME;
+              // Stage advances now but stats remain at old stage until breakthrough completes
+              plant.stage = currentStage + 1;
+              addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + BREAKTHROUGH_TIME + "秒）…", "end");
+            } else {
+              addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
+            }
+            renderBackpack();
+            renderGrid();
+            return;
+          }
+        }
+      }
+      // Otherwise: pick up the plant back to backpack
       gs.grid[idx] = null;
-      gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || PLANT_STAGES, plantLevel: plant.plantLevel || 0 });
+      gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
       addLog(plant.name + " 已取回到背包", "dodge");
       renderBackpack();
       renderGrid();
@@ -192,7 +260,9 @@ export function onSlotClick(e) {
     attackInterval: baseInterval,
     stage:          stage,
     plantLevel:     plantLevel,
-    growthTimer:    0,
+    breakthroughExp:   0,
+    isBreakingThrough: false,
+    breakthroughTimer: 0,
   });
 
   gs.selectedId = null;
@@ -226,9 +296,10 @@ export function renderBackpack() {
     return '<div class="bp-item' + (sel ? " bp-selected" : "") + '" data-id="' + item.id + '">' +
       '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
       '<div class="bp-name">' + escHtml(p.name) + "</div>" +
-      '<div class="bp-stage ' + stageClass + '">' + stageName + ' (' + Math.round(stageRatio * 100) + '%)</div>' +
+      '<div class="bp-stage ' + stageClass + '">' + stageName + '</div>' +
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
+      (sel ? '<div class="bp-feed-hint">点击同名已种植物喂养</div>' : '') +
       "</div>";
   }).join("");
 
@@ -240,7 +311,7 @@ export function renderBackpack() {
       renderGrid();
       if (gs.selectedId !== null) {
         const it = gs.backpack.find(function(b) { return b.id === id; });
-        if (it) addLog("已选中 " + plantLibrary[it.plantIdx].name + "，点击种植区空格放置", "dodge");
+        if (it) addLog("已选中 " + plantLibrary[it.plantIdx].name + "，点击空格放置或点击同名植物喂养突破", "dodge");
       }
     });
   });
