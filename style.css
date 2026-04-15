@@ -819,3 +819,35 @@ label {
   font-size: 12px;
   font-family: inherit;
 }
+.rc-monster-types-group {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+}
+.rc-monster-types-label {
+  font-size: 12px;
+  color: #4d5b59;
+  font-weight: 600;
+}
+.rc-monster-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rc-monster-check-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #2d3b39;
+  cursor: pointer;
+  background: #f0f4f0;
+  border: 1px solid #cbd1c2;
+  border-radius: 6px;
+  padding: 4px 10px;
+}
+.rc-monster-check-label input[type="checkbox"] {
+  cursor: pointer;
+}

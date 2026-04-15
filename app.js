@@ -59,11 +59,12 @@ function sanitizePlantSpawn(p) {
 plantSpawnConfigs.forEach(sanitizePlantSpawn);
 
 // ─────────────────── Round Monster Config ────────────
-const roundConfig = { baseCount: 5, countPerRound: 2 };
+const roundConfig = { baseCount: 5, countPerRound: 2, allowedMonsters: null };
 
 function sanitizeRoundConfig(r) {
   r.baseCount     = Math.max(1, Math.floor(toNum(r.baseCount,     5)));
   r.countPerRound = Math.max(0, Math.floor(toNum(r.countPerRound, 2)));
+  if (!Array.isArray(r.allowedMonsters)) r.allowedMonsters = null;
 }
 sanitizeRoundConfig(roundConfig);
 
@@ -915,9 +916,15 @@ function endDusk() {
 function buildQueue() {
   const count = roundConfig.baseCount + (gs.round - 1) * roundConfig.countPerRound;
   const arr   = [];
+  // Determine the pool of allowed monster indices
+  let allowed = Array.isArray(roundConfig.allowedMonsters) && roundConfig.allowedMonsters.length > 0
+    ? roundConfig.allowedMonsters.filter(function(i) { return i >= 0 && i < monsterTypes.length; })
+    : null;
+  if (!allowed || allowed.length === 0) {
+    allowed = monsterTypes.map(function(_, idx) { return idx; });
+  }
   for (let i = 0; i < count; i++) {
-    const maxType = Math.min(monsterTypes.length - 1, Math.floor(gs.round / 2));
-    const ti      = Math.floor(Math.random() * (maxType + 1));
+    const ti      = allowed[Math.floor(Math.random() * allowed.length)];
     const t       = monsterTypes[ti];
     const scale   = 1 + (gs.round - 1) * ROUND_SCALE_FACTOR;
     arr.push({
@@ -1369,8 +1376,9 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       renderPlantSpawnLibrary();
     }
     if (data.roundConfig && typeof data.roundConfig === "object") {
-      roundConfig.baseCount     = data.roundConfig.baseCount;
-      roundConfig.countPerRound = data.roundConfig.countPerRound;
+      roundConfig.baseCount       = data.roundConfig.baseCount;
+      roundConfig.countPerRound   = data.roundConfig.countPerRound;
+      roundConfig.allowedMonsters = Array.isArray(data.roundConfig.allowedMonsters) ? data.roundConfig.allowedMonsters : null;
       sanitizeRoundConfig(roundConfig);
       renderRoundConfig();
     }
@@ -1604,6 +1612,7 @@ elMonsterLibraryList.addEventListener("click", function(evt) {
     });
     sanitizeMonster(m);
     renderMonsterLibrary();
+    renderRoundConfig();
     addLog("怪物库已更新：" + m.name, "end");
     return;
   }
@@ -1613,6 +1622,7 @@ elMonsterLibraryList.addEventListener("click", function(evt) {
     const name = monsterTypes[idx].name;
     monsterTypes.splice(idx, 1);
     renderMonsterLibrary();
+    renderRoundConfig();
     addLog("已从怪物库移除：" + name, "end");
     return;
   }
@@ -1626,6 +1636,7 @@ document.getElementById("btnAddMonster").addEventListener("click", function() {
   sanitizeMonster(newM);
   monsterTypes.push(newM);
   renderMonsterLibrary();
+  renderRoundConfig();
   const newIdx = monsterTypes.length - 1;
   const form   = document.getElementById("mon-form-" + newIdx);
   if (form) form.style.display = "grid";
@@ -1832,6 +1843,18 @@ elRoundConfigToggle.addEventListener("click", function() {
 });
 
 function renderRoundConfig() {
+  // Build checkboxes for each monster type
+  var checkboxHtml = '<div class="rc-monster-checks">';
+  monsterTypes.forEach(function(m, idx) {
+    var checked = (!Array.isArray(roundConfig.allowedMonsters) || roundConfig.allowedMonsters.indexOf(idx) !== -1) ? "checked" : "";
+    checkboxHtml +=
+      '<label class="rc-monster-check-label">' +
+        '<input type="checkbox" class="rc-monster-cb" data-idx="' + idx + '" ' + checked + '>' +
+        ' ' + m.emoji + ' ' + m.name +
+      '</label>';
+  });
+  checkboxHtml += '</div>';
+
   elRoundConfigForm.innerHTML =
     '<label>每波基础怪物数量' +
       '<input id="rc-baseCount" type="number" min="1" step="1" value="' + roundConfig.baseCount + '">' +
@@ -1839,6 +1862,10 @@ function renderRoundConfig() {
     '<label>每回合额外增加怪物数' +
       '<input id="rc-countPerRound" type="number" min="0" step="1" value="' + roundConfig.countPerRound + '">' +
     '</label>' +
+    '<div class="rc-monster-types-group">' +
+      '<span class="rc-monster-types-label">允许出现的怪物种类</span>' +
+      checkboxHtml +
+    '</div>' +
     '<div class="lib-form-actions">' +
       '<button id="btnRoundConfigSave">保存</button>' +
     '</div>';
@@ -1846,9 +1873,16 @@ function renderRoundConfig() {
   document.getElementById("btnRoundConfigSave").addEventListener("click", function() {
     roundConfig.baseCount     = toNum(document.getElementById("rc-baseCount").value,     roundConfig.baseCount);
     roundConfig.countPerRound = toNum(document.getElementById("rc-countPerRound").value, roundConfig.countPerRound);
+    var checked = Array.from(document.querySelectorAll(".rc-monster-cb:checked")).map(function(el) {
+      return parseInt(el.getAttribute("data-idx"), 10);
+    });
+    roundConfig.allowedMonsters = checked.length > 0 ? checked : null;
     sanitizeRoundConfig(roundConfig);
     renderRoundConfig();
-    addLog("波次怪物配置已更新：基础 " + roundConfig.baseCount + " 只，每回合 +" + roundConfig.countPerRound + " 只。", "end");
+    var typeNames = Array.isArray(roundConfig.allowedMonsters)
+      ? roundConfig.allowedMonsters.map(function(i) { return monsterTypes[i] ? monsterTypes[i].name : ""; }).join("、")
+      : "全部";
+    addLog("波次怪物配置已更新：基础 " + roundConfig.baseCount + " 只，每回合 +" + roundConfig.countPerRound + " 只，允许种类：" + typeNames + "。", "end");
   });
 }
 
