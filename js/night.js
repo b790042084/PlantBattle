@@ -245,7 +245,7 @@ function monsterAttack(m, plant, ts, slotIdx) {
   plant.hp = Math.max(0, plant.hp - dmg);
 
   // Monster hit resets breakthrough EXP (plant failed to defend)
-  if (plant.breakthroughExp > 0 && !plant.isBreakingThrough) {
+  if ((plant.breakthroughExp || 0) > 0 && !plant.isBreakingThrough) {
     plant.breakthroughExp = 0;
     addLog(plant.name + " 被攻击，突破经验值已清零！", "crit");
   }
