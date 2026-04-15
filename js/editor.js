@@ -554,6 +554,24 @@ export function renderGameConfig() {
     '<label>玩家初始生命值' +
       '<input id="gc-initialLives" type="number" min="1" step="1" value="' + gameConfig.initialLives + '">' +
     '</label>' +
+    '<label>种植区初始格子数（最少1）' +
+      '<input id="gc-zoneBaseSlots" type="number" min="1" step="1" value="' + gameConfig.zoneBaseSlots + '">' +
+    '</label>' +
+    '<label>突破所需经验（逗号分隔，对应 阶段1→2, 2→3, 3→4）' +
+      '<input id="gc-breakthroughExp" type="text" value="' + gameConfig.breakthroughExp.join(",") + '">' +
+    '</label>' +
+    '<label>突破所需时间（秒）' +
+      '<input id="gc-breakthroughTime" type="number" min="1" step="1" value="' + gameConfig.breakthroughTime + '">' +
+    '</label>' +
+    '<label>植物升级基础费用' +
+      '<input id="gc-plantUpgradeCostBase" type="number" min="1" step="1" value="' + gameConfig.plantUpgradeCostBase + '">' +
+    '</label>' +
+    '<label>植物升级费用倍率' +
+      '<input id="gc-plantUpgradeCostMult" type="number" min="1" step="0.1" value="' + gameConfig.plantUpgradeCostMult + '">' +
+    '</label>' +
+    '<label>植物升级属性增幅（如 0.15 = 每级+15%）' +
+      '<input id="gc-plantUpgradeStatMult" type="number" min="0.01" step="0.01" value="' + gameConfig.plantUpgradeStatMult + '">' +
+    '</label>' +
     '<div class="lib-form-actions">' +
       '<button id="btnGameConfigSave">保存</button>' +
     '</div>';
@@ -563,12 +581,27 @@ export function renderGameConfig() {
     gameConfig.duskDuration  = toNum(document.getElementById("gc-duskDuration").value,  gameConfig.duskDuration);
     gameConfig.nightDuration = toNum(document.getElementById("gc-nightDuration").value, gameConfig.nightDuration);
     gameConfig.initialLives  = toNum(document.getElementById("gc-initialLives").value,  gameConfig.initialLives);
+    gameConfig.zoneBaseSlots = toNum(document.getElementById("gc-zoneBaseSlots").value,  gameConfig.zoneBaseSlots);
+    // Parse breakthroughExp as comma-separated integers
+    var expStr = document.getElementById("gc-breakthroughExp").value || "";
+    var expArr = expStr.split(",").map(function(s) { return Math.max(1, Math.floor(toNum(s.trim(), 3))); }).filter(function(v) { return !isNaN(v); });
+    if (expArr.length > 0) gameConfig.breakthroughExp = expArr;
+    gameConfig.breakthroughTime    = toNum(document.getElementById("gc-breakthroughTime").value,    gameConfig.breakthroughTime);
+    gameConfig.plantUpgradeCostBase = toNum(document.getElementById("gc-plantUpgradeCostBase").value, gameConfig.plantUpgradeCostBase);
+    gameConfig.plantUpgradeCostMult = toNum(document.getElementById("gc-plantUpgradeCostMult").value, gameConfig.plantUpgradeCostMult);
+    gameConfig.plantUpgradeStatMult = toNum(document.getElementById("gc-plantUpgradeStatMult").value, gameConfig.plantUpgradeStatMult);
     sanitizeGameConfig(gameConfig);
     renderGameConfig();
     addLog(
       "游戏基础配置已更新：白天 " + gameConfig.dayDuration + "s，黄昏 " + gameConfig.duskDuration + "s，夜晚限时 " +
       (gameConfig.nightDuration > 0 ? gameConfig.nightDuration + "s" : "无限制") +
-      "，初始生命 " + gameConfig.initialLives + "。", "end"
+      "，初始生命 " + gameConfig.initialLives +
+      "，种植区初始格子 " + gameConfig.zoneBaseSlots +
+      "，突破经验 [" + gameConfig.breakthroughExp.join(",") + "]" +
+      "，突破时间 " + gameConfig.breakthroughTime + "s" +
+      "，升级基础费用 " + gameConfig.plantUpgradeCostBase +
+      "，升级费用倍率 " + gameConfig.plantUpgradeCostMult +
+      "，升级属性增幅 " + (gameConfig.plantUpgradeStatMult * 100) + "%。", "end"
     );
   });
 }

@@ -107,6 +107,12 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       gameConfig.duskDuration  = data.gameConfig.duskDuration;
       gameConfig.nightDuration = data.gameConfig.nightDuration;
       gameConfig.initialLives  = data.gameConfig.initialLives;
+      if (data.gameConfig.zoneBaseSlots !== undefined) gameConfig.zoneBaseSlots = data.gameConfig.zoneBaseSlots;
+      if (Array.isArray(data.gameConfig.breakthroughExp)) gameConfig.breakthroughExp = data.gameConfig.breakthroughExp;
+      if (data.gameConfig.breakthroughTime !== undefined) gameConfig.breakthroughTime = data.gameConfig.breakthroughTime;
+      if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
+      if (data.gameConfig.plantUpgradeCostMult !== undefined) gameConfig.plantUpgradeCostMult = data.gameConfig.plantUpgradeCostMult;
+      if (data.gameConfig.plantUpgradeStatMult !== undefined) gameConfig.plantUpgradeStatMult = data.gameConfig.plantUpgradeStatMult;
       sanitizeGameConfig(gameConfig);
       renderGameConfig();
     }
@@ -115,6 +121,110 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
     addLog("配置加载失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
   }
+});
+
+// ─────────────────── Export / Import JSON ─────────────
+function buildAllConfig() {
+  return {
+    plantLibrary:      plantLibrary,
+    monsterTypes:      monsterTypes,
+    waveTypes:         waveTypes,
+    plantSpawnConfigs: plantSpawnConfigs,
+    waveList:          waveList,
+    gameConfig:        gameConfig,
+  };
+}
+
+function loadAllConfig(data) {
+  if (Array.isArray(data.plantLibrary) && data.plantLibrary.length >= 1) {
+    plantLibrary.splice(0, plantLibrary.length);
+    data.plantLibrary.forEach(function(p) { plantLibrary.push(p); });
+    plantLibrary.forEach(sanitizePlant);
+    renderLibrary();
+    renderBackpack();
+  }
+  if (Array.isArray(data.monsterTypes) && data.monsterTypes.length >= 1) {
+    monsterTypes.splice(0, monsterTypes.length);
+    data.monsterTypes.forEach(function(m) { monsterTypes.push(m); });
+    monsterTypes.forEach(sanitizeMonster);
+    renderMonsterLibrary();
+  }
+  if (Array.isArray(data.waveTypes) && data.waveTypes.length >= 1) {
+    waveTypes.splice(0, waveTypes.length);
+    data.waveTypes.forEach(function(w) { waveTypes.push(w); });
+    waveTypes.forEach(sanitizeWave);
+    renderWaveLibrary();
+  }
+  if (Array.isArray(data.plantSpawnConfigs) && data.plantSpawnConfigs.length >= 1) {
+    plantSpawnConfigs.splice(0, plantSpawnConfigs.length);
+    data.plantSpawnConfigs.forEach(function(p) { plantSpawnConfigs.push(p); });
+    plantSpawnConfigs.forEach(sanitizePlantSpawn);
+    renderPlantSpawnLibrary();
+  }
+  if (Array.isArray(data.waveList) && data.waveList.length >= 1) {
+    waveList.splice(0, waveList.length);
+    data.waveList.forEach(function(w) {
+      waveList.push(Array.isArray(w) ? w : []);
+    });
+    waveList.forEach(function(waveDef) { waveDef.forEach(sanitizeWaveEntry); });
+    renderRoundConfig();
+  }
+  if (data.gameConfig && typeof data.gameConfig === "object") {
+    gameConfig.dayDuration   = data.gameConfig.dayDuration;
+    gameConfig.duskDuration  = data.gameConfig.duskDuration;
+    gameConfig.nightDuration = data.gameConfig.nightDuration;
+    gameConfig.initialLives  = data.gameConfig.initialLives;
+    if (data.gameConfig.zoneBaseSlots !== undefined) gameConfig.zoneBaseSlots = data.gameConfig.zoneBaseSlots;
+    if (Array.isArray(data.gameConfig.breakthroughExp)) gameConfig.breakthroughExp = data.gameConfig.breakthroughExp;
+    if (data.gameConfig.breakthroughTime !== undefined) gameConfig.breakthroughTime = data.gameConfig.breakthroughTime;
+    if (data.gameConfig.plantUpgradeCostBase !== undefined) gameConfig.plantUpgradeCostBase = data.gameConfig.plantUpgradeCostBase;
+    if (data.gameConfig.plantUpgradeCostMult !== undefined) gameConfig.plantUpgradeCostMult = data.gameConfig.plantUpgradeCostMult;
+    if (data.gameConfig.plantUpgradeStatMult !== undefined) gameConfig.plantUpgradeStatMult = data.gameConfig.plantUpgradeStatMult;
+    sanitizeGameConfig(gameConfig);
+    renderGameConfig();
+  }
+}
+
+document.getElementById("btnExportConfig").addEventListener("click", function() {
+  try {
+    var json = JSON.stringify(buildAllConfig(), null, 2);
+    var blob = new Blob([json], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "plant-battle-config.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addLog("配置已导出为 JSON 文件。", "end");
+  } catch(e) {
+    addLog("导出失败：" + e.message, "dodge");
+    console.warn("export error:", e);
+  }
+});
+
+document.getElementById("btnImportConfig").addEventListener("click", function() {
+  var input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json,application/json";
+  input.addEventListener("change", function() {
+    var file = input.files && input.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        var data = JSON.parse(evt.target.result);
+        loadAllConfig(data);
+        addLog("配置已从 JSON 文件导入成功！", "end");
+      } catch(e) {
+        addLog("导入失败：JSON 解析错误 — " + e.message, "dodge");
+        console.warn("import error:", e);
+      }
+    };
+    reader.readAsText(file);
+  });
+  input.click();
 });
 
 // ─────────────────── Add wave (round config) ─────────
