@@ -58,6 +58,15 @@ function sanitizePlantSpawn(p) {
 }
 plantSpawnConfigs.forEach(sanitizePlantSpawn);
 
+// ─────────────────── Round Monster Config ────────────
+const roundConfig = { baseCount: 5, countPerRound: 2 };
+
+function sanitizeRoundConfig(r) {
+  r.baseCount     = Math.max(1, Math.floor(toNum(r.baseCount,     5)));
+  r.countPerRound = Math.max(0, Math.floor(toNum(r.countPerRound, 2)));
+}
+sanitizeRoundConfig(roundConfig);
+
 function sanitizeMonster(m) {
   m.name           = String(m.name  || "怪物").trim() || "怪物";
   m.emoji          = String(m.emoji || "🧟").trim()  || "🧟";
@@ -175,6 +184,11 @@ const elWaveLibraryToggle      = document.getElementById("waveLibraryToggle");
 const elPlantSpawnLibraryList  = document.getElementById("plantSpawnLibraryList");
 const elPlantSpawnLibraryBody  = document.getElementById("plantSpawnLibraryBody");
 const elPlantSpawnLibraryToggle = document.getElementById("plantSpawnLibraryToggle");
+
+// Round monster config
+const elRoundConfigBody   = document.getElementById("roundConfigBody");
+const elRoundConfigToggle = document.getElementById("roundConfigToggle");
+const elRoundConfigForm   = document.getElementById("roundConfigForm");
 
 // Show current version in the HUD
 if (elVersion) elVersion.textContent = APP_VERSION;
@@ -899,7 +913,7 @@ function endDusk() {
 
 // ─────────────────── Night Phase ─────────────────────
 function buildQueue() {
-  const count = 5 + (gs.round - 1) * 2;
+  const count = roundConfig.baseCount + (gs.round - 1) * roundConfig.countPerRound;
   const arr   = [];
   for (let i = 0; i < count; i++) {
     const maxType = Math.min(monsterTypes.length - 1, Math.floor(gs.round / 2));
@@ -1314,9 +1328,10 @@ document.getElementById("btnSaveConfig").addEventListener("click", function() {
       plantLibrary:      plantLibrary, 
       monsterTypes:      monsterTypes, 
       waveTypes:         waveTypes,
-      plantSpawnConfigs: plantSpawnConfigs
+      plantSpawnConfigs: plantSpawnConfigs,
+      roundConfig:       roundConfig
     }));
-    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置已保存到本地浏览器。", "end");
+    addLog("植物库 & 怪物库 & 海浪库 & 植物刷新配置 & 波次怪物配置已保存到本地浏览器。", "end");
   } catch(e) {
     addLog("保存失败（file:// 协议不支持 localStorage）", "dodge");
     console.warn("localStorage error:", e);
@@ -1352,6 +1367,12 @@ document.getElementById("btnLoadConfig").addEventListener("click", function() {
       data.plantSpawnConfigs.forEach(function(p) { plantSpawnConfigs.push(p); });
       plantSpawnConfigs.forEach(sanitizePlantSpawn);
       renderPlantSpawnLibrary();
+    }
+    if (data.roundConfig && typeof data.roundConfig === "object") {
+      roundConfig.baseCount     = data.roundConfig.baseCount;
+      roundConfig.countPerRound = data.roundConfig.countPerRound;
+      sanitizeRoundConfig(roundConfig);
+      renderRoundConfig();
     }
     addLog("配置加载成功！", "end");
   } catch(e) { 
@@ -1804,6 +1825,33 @@ document.getElementById("btnAddPlantSpawn").addEventListener("click", function()
   addLog("新植物刷新配置已添加，请填写属性后保存。", "end");
 });
 
+// ─────────────────── Round Monster Config Editor ──────
+elRoundConfigToggle.addEventListener("click", function() {
+  const open = elRoundConfigBody.style.display === "none";
+  elRoundConfigBody.style.display = open ? "" : "none";
+});
+
+function renderRoundConfig() {
+  elRoundConfigForm.innerHTML =
+    '<label>每波基础怪物数量' +
+      '<input id="rc-baseCount" type="number" min="1" step="1" value="' + roundConfig.baseCount + '">' +
+    '</label>' +
+    '<label>每回合额外增加怪物数' +
+      '<input id="rc-countPerRound" type="number" min="0" step="1" value="' + roundConfig.countPerRound + '">' +
+    '</label>' +
+    '<div class="lib-form-actions">' +
+      '<button id="btnRoundConfigSave">保存</button>' +
+    '</div>';
+
+  document.getElementById("btnRoundConfigSave").addEventListener("click", function() {
+    roundConfig.baseCount     = toNum(document.getElementById("rc-baseCount").value,     roundConfig.baseCount);
+    roundConfig.countPerRound = toNum(document.getElementById("rc-countPerRound").value, roundConfig.countPerRound);
+    sanitizeRoundConfig(roundConfig);
+    renderRoundConfig();
+    addLog("波次怪物配置已更新：基础 " + roundConfig.baseCount + " 只，每回合 +" + roundConfig.countPerRound + " 只。", "end");
+  });
+}
+
 // ─────────────────── Boot ────────────────────────────
 
 function initializeGame() {
@@ -1823,6 +1871,7 @@ function initializeGame() {
   renderMonsterLibrary();
   renderWaveLibrary();
   renderPlantSpawnLibrary();
+  renderRoundConfig();
   initGrid();
   renderBackpack();
   updateHUD();
