@@ -795,3 +795,27 @@ label {
   .bp-item { width: 60px; }
   .bp-item img { width: 36px; height: 36px; }
 }
+
+
+/* ===== ROUND MONSTER CONFIG PANEL ===== */
+.round-config-panel { border-color: #c0c8d8; }
+.round-config-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 12px;
+}
+.round-config-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #4d5b59;
+}
+.round-config-form input {
+  border: 1px solid #cbd1c2;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 12px;
+  font-family: inherit;
+}
