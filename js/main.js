@@ -34,18 +34,6 @@ document.getElementById("btnGoLog").addEventListener("click", function() { showV
 document.getElementById("btnBackFromConfig").addEventListener("click", function() { showView("game"); });
 document.getElementById("btnBackFromLog").addEventListener("click", function() { showView("game"); });
 
-// ─────────────────── Backpack Modal ──────────────────
-var elBackpackModal = document.getElementById("backpackModal");
-document.getElementById("btnBackpack").addEventListener("click", function() {
-  elBackpackModal.style.display = elBackpackModal.style.display === "none" ? "" : "none";
-});
-document.getElementById("btnCloseBackpack").addEventListener("click", function() {
-  elBackpackModal.style.display = "none";
-});
-elBackpackModal.addEventListener("click", function(e) {
-  if (e.target === elBackpackModal) elBackpackModal.style.display = "none";
-});
-
 // ─────────────────── Top-level button handlers ───────
 document.getElementById("btnStart").addEventListener("click", function() {
   if (gs.phase !== "idle" && gs.phase !== "gameover" && gs.phase !== "victory") return;

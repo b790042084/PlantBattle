@@ -481,6 +481,12 @@ function victory() {
 }
 
 export function endNight() {
+  // If called by night timer but monsters still alive, don't end — keep fighting
+  if (gs.monsters.length > 0 || gs.mQueue.length > 0) {
+    if (gs.nightHandle) { clearTimeout(gs.nightHandle); gs.nightHandle = null; }
+    addLog("⏱ 夜晚限时已到，但仍有僵尸存活！必须击杀所有僵尸才能进入下一关！", "crit");
+    return;
+  }
   if (gs.nightHandle) { clearTimeout(gs.nightHandle); gs.nightHandle = null; }
   if (gs.animId) { cancelAnimationFrame(gs.animId); gs.animId = null; }
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
