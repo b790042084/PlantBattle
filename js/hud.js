@@ -69,6 +69,69 @@ export function updateHUD() {
   updateShopDisplay();
 }
 
+// ─────────────────── Drag state ──────────────────────
+let _dragBpId = null; // backpack item id being dragged
+
+// ─────────────────── Feed logic (shared by drag-drop) ─
+export function feedPlant(slotIdx, backpackId) {
+  const plant = gs.grid[slotIdx];
+  if (!plant) return false;
+
+  const bpIdx = gs.backpack.findIndex(function(b) { return b.id === backpackId; });
+  if (bpIdx === -1) return false;
+
+  const feedItem = gs.backpack[bpIdx];
+  if (feedItem.plantIdx !== plant.plantIdx) {
+    addLog("只能用同名植物喂养！", "dodge");
+    return false;
+  }
+
+  const feedStage = feedItem.stage || 1;
+  const plantStage = plant.stage || 1;
+  if (feedStage !== plantStage) {
+    addLog("只能用同等级（" + STAGE_NAMES[plantStage - 1] + "）的植物喂养！", "dodge");
+    return false;
+  }
+
+  if (plantStage >= PLANT_STAGES) {
+    addLog(plant.name + " 已经是完全体，无法继续喂养！", "dodge");
+    return false;
+  }
+  if (plant.isBreakingThrough) {
+    addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
+    return false;
+  }
+
+  const expNeeded = getBreakthroughExp()[plantStage - 1] || 3;
+  plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
+
+  // Consume the fed plant from backpack
+  gs.backpack.splice(bpIdx, 1);
+  gs.selectedId = null;
+
+  if (plant.breakthroughExp >= expNeeded) {
+    plant.isBreakingThrough = true;
+    plant.breakthroughTimer = getBreakthroughTime();
+    plant.stage = plantStage + 1;
+    addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
+  } else {
+    addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
+  }
+  renderBackpack();
+  renderGrid();
+  return true;
+}
+
+// Check if a backpack item can feed a grid plant
+function canFeedPlant(backpackItem, plant) {
+  if (!plant || !backpackItem) return false;
+  if (backpackItem.plantIdx !== plant.plantIdx) return false;
+  if ((backpackItem.stage || 1) !== (plant.stage || 1)) return false;
+  if ((plant.stage || 1) >= PLANT_STAGES) return false;
+  if (plant.isBreakingThrough) return false;
+  return true;
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -84,6 +147,10 @@ export function initGrid() {
     s.className    = "plant-slot";
     s.dataset.slot = i;
     s.addEventListener("click", onSlotClick);
+    // Drag-drop: allow dropping backpack plants onto grid slots
+    s.addEventListener("dragover", onSlotDragOver);
+    s.addEventListener("dragleave", onSlotDragLeave);
+    s.addEventListener("drop", onSlotDrop);
     elPlantingGrid.appendChild(s);
   }
   renderGrid();
@@ -97,20 +164,10 @@ export function renderGrid() {
     if (!el) continue;
     const plant = gs.grid[i];
     const canHL = gs.selectedId !== null && !plant;
-    // Check if we can feed (selected same-type plant to an existing plant)
-    let canFeed = false;
-    if (plant && gs.selectedId !== null) {
-      const selItem = gs.backpack.find(function(b) { return b.id === gs.selectedId; });
-      if (selItem && selItem.plantIdx === plant.plantIdx &&
-          (plant.stage || 1) < PLANT_STAGES && !plant.isBreakingThrough) {
-        canFeed = true;
-      }
-    }
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
-      (canHL ? " slot-highlight" : "") +
-      (canFeed ? " slot-feed-highlight" : "");
+      (canHL ? " slot-highlight" : "");
 
     if (plant) {
       const ratio = Math.max(0, plant.hp) / plant.maxHp;
@@ -175,46 +232,7 @@ export function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
-    // If we have a selected backpack item of the SAME type → feed for breakthrough EXP
-    if (gs.selectedId !== null) {
-      const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
-      if (bpIdx !== -1) {
-        const feedItem = gs.backpack[bpIdx];
-        if (feedItem.plantIdx === plant.plantIdx) {
-          // Same plant type → feed
-          const currentStage = plant.stage || 1;
-          if (currentStage >= PLANT_STAGES) {
-            addLog(plant.name + " 已经是完全体，无法继续喂养！", "dodge");
-            return;
-          }
-          if (plant.isBreakingThrough) {
-            addLog(plant.name + " 正在突破中，无法喂养！", "dodge");
-            return;
-          }
-          const expNeeded = getBreakthroughExp()[currentStage - 1] || 3;
-          plant.breakthroughExp = (plant.breakthroughExp || 0) + 1;
-
-          // Consume the fed plant from backpack
-          gs.backpack.splice(bpIdx, 1);
-          gs.selectedId = null;
-
-          if (plant.breakthroughExp >= expNeeded) {
-            // EXP full → start breakthrough timer
-            plant.isBreakingThrough = true;
-            plant.breakthroughTimer = getBreakthroughTime();
-            // Stage advances now but stats remain at old stage until breakthrough completes
-            plant.stage = currentStage + 1;
-            addLog("🔥 " + plant.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
-          } else {
-            addLog("🌿 喂养 " + plant.name + " +1 突破经验（" + plant.breakthroughExp + "/" + expNeeded + "）", "end");
-          }
-          renderBackpack();
-          renderGrid();
-          return;
-        }
-      }
-    }
-    // Otherwise: pick up the plant back to backpack
+    // Click on a planted plant → pick it up back to backpack
     gs.grid[idx] = null;
     gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
     addLog(plant.name + " 已取回到背包", "dodge");
@@ -271,6 +289,91 @@ export function onSlotClick(e) {
   renderGrid();
 }
 
+// ─────────────────── Drag-drop handlers ──────────────
+function onSlotDragOver(e) {
+  e.preventDefault();
+  if (_dragBpId === null) return;
+  const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+  const plant = gs.grid[idx];
+  if (!plant) {
+    // Allow drop onto empty slot for placement
+    e.currentTarget.classList.add("slot-highlight");
+    return;
+  }
+  // Check if can feed
+  const bpItem = gs.backpack.find(function(b) { return b.id === _dragBpId; });
+  if (canFeedPlant(bpItem, plant)) {
+    e.currentTarget.classList.add("slot-feed-highlight");
+  }
+}
+
+function onSlotDragLeave(e) {
+  e.currentTarget.classList.remove("slot-feed-highlight");
+  e.currentTarget.classList.remove("slot-highlight");
+}
+
+function onSlotDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("slot-feed-highlight");
+  e.currentTarget.classList.remove("slot-highlight");
+  if (_dragBpId === null) return;
+
+  const idx   = parseInt(e.currentTarget.dataset.slot, 10);
+  const plant = gs.grid[idx];
+
+  if (plant) {
+    // Try to feed
+    feedPlant(idx, _dragBpId);
+  } else {
+    // Place plant on empty slot via drag
+    const bpIdx = gs.backpack.findIndex(function(b) { return b.id === _dragBpId; });
+    if (bpIdx !== -1) {
+      // Simulate placement: set selectedId and call placement logic
+      gs.selectedId = _dragBpId;
+      // Inline placement
+      const item  = gs.backpack.splice(bpIdx, 1)[0];
+      const pDef  = plantLibrary[item.plantIdx];
+      const baseInterval = pDef.attackMode === "melee" ? 2200 : pDef.attackMode === "area" ? 2000 : 1600;
+      const stage = item.stage || 1;
+      const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
+      const plantLevel = item.plantLevel || 0;
+      const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
+      const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
+      const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
+      const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
+      const cols = Math.min(gs.activeSlots, LANES);
+      gs.grid[idx] = Object.assign({}, pDef, {
+        id:             uid(),
+        plantIdx:       item.plantIdx,
+        maxHp:          effectiveHp,
+        hp:             effectiveHp,
+        atk:            effectiveAtk,
+        df:             effectiveDf,
+        shield:         0,
+        poisonTurns:    0,
+        poisonDmg:      0,
+        slowTurns:      0,
+        currentCd:      0,
+        lane:           idx % cols,
+        row:            Math.floor(idx / cols),
+        slotIdx:        idx,
+        lastAttackTime: 0,
+        attackInterval: baseInterval,
+        stage:          stage,
+        plantLevel:     plantLevel,
+        breakthroughExp:   0,
+        isBreakingThrough: false,
+        breakthroughTimer: 0,
+      });
+      gs.selectedId = null;
+      addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % cols + 1) + "-" + (Math.floor(idx / cols) + 1) + " 位置", "end");
+      renderBackpack();
+      renderGrid();
+    }
+  }
+  _dragBpId = null;
+}
+
 // ─────────────────── Backpack ────────────────────────
 export function renderBackpack() {
   if (elBackpackCount) elBackpackCount.textContent = gs.backpack.length + " 个植物";
@@ -293,17 +396,17 @@ export function renderBackpack() {
     const effectiveHp  = Math.floor(p.hp  * stageRatio * levelMult);
     const effectiveAtk = Math.floor(p.atk * stageRatio * levelMult);
 
-    return '<div class="bp-item' + (sel ? " bp-selected" : "") + '" data-id="' + item.id + '">' +
-      '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
+    return '<div class="bp-item' + (sel ? " bp-selected" : "") + '" data-id="' + item.id + '" draggable="true">' +
+      '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'" draggable="false">' +
       '<div class="bp-name">' + escHtml(p.name) + "</div>" +
       '<div class="bp-stage ' + stageClass + '">' + stageName + '</div>' +
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
-      (sel ? '<div class="bp-feed-hint">点击同名已种植物喂养</div>' : '') +
       "</div>";
   }).join("");
 
   elBackpackItems.querySelectorAll(".bp-item").forEach(function(el) {
+    // Click to select for placement
     el.addEventListener("click", function() {
       const id = parseInt(el.dataset.id, 10);
       gs.selectedId = gs.selectedId === id ? null : id;
@@ -311,8 +414,25 @@ export function renderBackpack() {
       renderGrid();
       if (gs.selectedId !== null) {
         const it = gs.backpack.find(function(b) { return b.id === id; });
-        if (it) addLog("已选中 " + plantLibrary[it.plantIdx].name + "，点击空格放置或点击同名植物喂养突破", "dodge");
+        if (it) addLog("已选中 " + plantLibrary[it.plantIdx].name + "，点击空格放置或拖动到同名同阶植物喂养突破", "dodge");
       }
+    });
+    // Drag to feed
+    el.addEventListener("dragstart", function(e) {
+      const id = parseInt(el.dataset.id, 10);
+      _dragBpId = id;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(id));
+      el.classList.add("bp-dragging");
+    });
+    el.addEventListener("dragend", function() {
+      el.classList.remove("bp-dragging");
+      _dragBpId = null;
+      // Clean up any lingering highlights
+      elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+        s.classList.remove("slot-feed-highlight");
+        s.classList.remove("slot-highlight");
+      });
     });
   });
 }
