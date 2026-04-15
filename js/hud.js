@@ -175,6 +175,37 @@ function feedPlantFromGrid(targetSlotIdx, sourceSlotIdx) {
   return true;
 }
 
+// ─────────────────── Swap / Move in grid ─────────────
+function swapPlantsInGrid(slotA, slotB) {
+  const cols = Math.min(gs.activeSlots, LANES);
+  const temp  = gs.grid[slotA];
+  gs.grid[slotA] = gs.grid[slotB];
+  gs.grid[slotB] = temp;
+
+  // Update positional metadata for both slots
+  if (gs.grid[slotA]) {
+    gs.grid[slotA].lane    = slotA % cols;
+    gs.grid[slotA].row     = Math.floor(slotA / cols);
+    gs.grid[slotA].slotIdx = slotA;
+  }
+  if (gs.grid[slotB]) {
+    gs.grid[slotB].lane    = slotB % cols;
+    gs.grid[slotB].row     = Math.floor(slotB / cols);
+    gs.grid[slotB].slotIdx = slotB;
+  }
+
+  const nameA = gs.grid[slotA] ? gs.grid[slotA].name : "空";
+  const nameB = gs.grid[slotB] ? gs.grid[slotB].name : "空";
+  if (gs.grid[slotA] && gs.grid[slotB]) {
+    addLog("🔄 " + nameA + " 与 " + nameB + " 交换了位置", "end");
+  } else {
+    const moved = gs.grid[slotA] || gs.grid[slotB];
+    const toSlot = gs.grid[slotA] ? slotA : slotB;
+    addLog("➡️ " + moved.name + " 移动到 " + (toSlot % cols + 1) + "-" + (Math.floor(toSlot / cols) + 1), "end");
+  }
+  renderGrid();
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -310,7 +341,7 @@ export function onSlotClick(e) {
     }
     // Click on a planted plant → pick it up back to backpack
     gs.grid[idx] = null;
-    gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
+    gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0, breakthroughExp: plant.breakthroughExp || 0 });
     addLog(plant.name + " 已取回到背包", "dodge");
     renderBackpack();
     renderGrid();
@@ -354,7 +385,7 @@ export function onSlotClick(e) {
     attackInterval: baseInterval,
     stage:          stage,
     plantLevel:     plantLevel,
-    breakthroughExp:   0,
+    breakthroughExp:   item.breakthroughExp || 0,
     isBreakingThrough: false,
     breakthroughTimer: 0,
   });
@@ -382,9 +413,10 @@ function onSlotDragStart(e) {
 function onSlotDragEnd(e) {
   e.currentTarget.classList.remove("slot-dragging");
   _dragGridSlot = null;
-  elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+  elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
     s.classList.remove("slot-feed-highlight");
     s.classList.remove("slot-highlight");
+    s.classList.remove("slot-swap-highlight");
   });
 }
 
@@ -496,8 +528,7 @@ function onSlotDrop(e) {
         attackInterval: baseInterval,
         stage:          stage,
         plantLevel:     plantLevel,
-        breakthroughExp:   0,
-        isBreakingThrough: false,
+        breakthroughExp:   item.breakthroughExp || 0,        isBreakingThrough: false,
         breakthroughTimer: 0,
       });
       gs.selectedId = null;
@@ -531,12 +562,19 @@ export function renderBackpack() {
     const effectiveHp  = Math.floor(p.hp  * stageRatio * levelMult);
     const effectiveAtk = Math.floor(p.atk * stageRatio * levelMult);
 
+    // Breakthrough EXP info
+    const bExp = item.breakthroughExp || 0;
+    const expNeeded = stage < PLANT_STAGES ? (getBreakthroughExp()[stage - 1] || 3) : 0;
+    const bExpInfo = (bExp > 0 && stage < PLANT_STAGES)
+      ? '<div class="bp-exp">突破 ' + bExp + '/' + expNeeded + '</div>' : '';
+
     return '<div class="bp-item' + (sel ? " bp-selected" : "") + '" data-id="' + item.id + '" draggable="true">' +
       '<img src="' + img + '" alt="' + escHtml(p.name) + '" onerror="this.onerror=null;this.src=\'' + fb + '\'" draggable="false">' +
       '<div class="bp-name">' + escHtml(p.name) + "</div>" +
       '<div class="bp-stage ' + stageClass + '">' + stageName + '</div>' +
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
+      bExpInfo +
       "</div>";
   }).join("");
 
