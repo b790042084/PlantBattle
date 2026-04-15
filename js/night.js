@@ -366,7 +366,7 @@ function doGoldGeneration() {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0) continue;
     const pDef = plantLibrary[plant.plantIdx];
-    const stageIdx = (plant.stage || PLANT_STAGES) - 1;
+    const stageIdx = (plant.stage || 1) - 1;
     const stageRatio = STAGE_RATIOS[stageIdx] || 1;
     const goldAmount = Math.floor((pDef.goldPerSec || 0) * stageRatio);
     if (goldAmount > 0) totalGold += goldAmount;
@@ -384,7 +384,7 @@ function doPlantGrowth() {
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
     if (!plant || plant.hp <= 0) continue;
-    if ((plant.stage || PLANT_STAGES) >= PLANT_STAGES) continue; // Already at max stage
+    if ((plant.stage || 1) >= PLANT_STAGES) continue; // Already at max stage
 
     plant.growthTimer = (plant.growthTimer || 0) + 1;
     if (plant.growthTimer >= STAGE_GROWTH_TIME) {

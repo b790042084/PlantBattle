@@ -112,7 +112,7 @@ export function renderGrid() {
       if (plant.slowTurns   > 0) statusParts.push("❄"  + plant.slowTurns);
 
       // Stage badge
-      const stageIdx = (plant.stage || PLANT_STAGES) - 1;
+      const stageIdx = (plant.stage || 1) - 1;
       const stageName = STAGE_NAMES[stageIdx] || STAGE_NAMES[PLANT_STAGES - 1];
       const stageClass = plant.stage >= PLANT_STAGES ? "stage-full" : "";
       const stageBadge = '<div class="slot-stage-badge ' + stageClass + '">' + stageName + '</div>';
