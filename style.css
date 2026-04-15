@@ -450,6 +450,42 @@ label {
 }
 .plant-slot.has-plant:hover { transform: none; background: rgba(30,80,40,.7); cursor: pointer; }
 
+/* Dormant (killed) plant — greyed out */
+.plant-slot.slot-dormant {
+  background: rgba(60,60,60,.55);
+  border-color: rgba(120,120,120,.5);
+}
+.plant-slot.slot-dormant:hover { background: rgba(60,60,60,.65); cursor: default; }
+.plant-slot.slot-dormant .slot-img {
+  filter: grayscale(100%) brightness(0.6);
+  opacity: 0.6;
+}
+.plant-slot.slot-dormant .slot-name { color: #aaa; }
+.slot-hpfill.dormant { background: linear-gradient(90deg, #888, #666); }
+
+/* Upgrade button on grid plant card */
+.slot-upgrade-btn {
+  border: 0;
+  background: #2b8a3e;
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.4;
+  transition: transform 100ms ease, filter 100ms ease;
+  white-space: nowrap;
+}
+.slot-upgrade-btn:hover:not(:disabled) { transform: scale(1.08); filter: brightness(1.15); }
+.slot-upgrade-btn:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .slot-img {
   width: 38px;
   height: 38px;
