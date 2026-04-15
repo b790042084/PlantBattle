@@ -44,19 +44,32 @@
           <span class="zone-hint" id="collectionHint">（←→/AD左右移动，空格跳跃切换行，海浪来时及时跳开）</span>
         </section>
 
-        <!-- ===== 战场：刷怪区 + 种植区（共享坐标系）===== -->
-        <div class="battle-wrapper">
-          <!-- 刷怪区背景 -->
-          <div class="monster-zone-bg">
-            <span class="zone-label">刷怪区</span>
+        <!-- ===== 战场 + 背包 横向布局 ===== -->
+        <div class="battle-backpack-row">
+          <!-- 战场：刷怪区 + 种植区（共享坐标系）-->
+          <div class="battle-wrapper">
+            <!-- 刷怪区背景 -->
+            <div class="monster-zone-bg">
+              <span class="zone-label">刷怪区</span>
+            </div>
+            <!-- 种植区背景 + 网格 -->
+            <div class="planting-zone-bg">
+              <span class="zone-label">种植区</span>
+              <div class="planting-grid" id="plantingGrid"></div>
+            </div>
+            <!-- 怪物动画覆盖层（绝对定位，覆盖整个 battle-wrapper）-->
+            <div class="battle-area" id="battleArea"></div>
           </div>
-          <!-- 种植区背景 + 网格 -->
-          <div class="planting-zone-bg">
-            <span class="zone-label">种植区</span>
-            <div class="planting-grid" id="plantingGrid"></div>
+
+          <!-- ===== 背包侧边栏（种植区右边）===== -->
+          <div class="backpack-sidebar" id="backpackSidebar">
+            <div class="backpack-header">
+              <h3>🎒 背包</h3>
+              <span id="backpackCount">0 个植物</span>
+            </div>
+            <span class="backpack-hint">点击选中 → 点空格放置 / 拖动到同名同阶已种植物喂养突破</span>
+            <div id="backpackItems" class="backpack-items"></div>
           </div>
-          <!-- 怪物动画覆盖层（绝对定位，覆盖整个 battle-wrapper）-->
-          <div class="battle-area" id="battleArea"></div>
         </div>
 
         <!-- ===== 升级商店 ===== -->
@@ -206,22 +219,6 @@
           <div id="log"></div>
         </section>
       </div><!-- /logView -->
-
-      <!-- ===== 背包浮动按钮 ===== -->
-      <button id="btnBackpack" class="backpack-float-btn">🎒 背包 <span id="backpackCountBadge" class="bp-badge">0</span></button>
-
-      <!-- ===== 背包弹窗 ===== -->
-      <div id="backpackModal" class="modal-overlay" style="display:none">
-        <div class="modal-content backpack-modal">
-          <div class="modal-header">
-            <h3>🎒 背包</h3>
-            <span id="backpackCount">0 个植物</span>
-            <span class="backpack-hint">点击选中 → 点空格放置 / 拖动到同名同阶已种植物喂养突破</span>
-            <button id="btnCloseBackpack" class="modal-close-btn">✕</button>
-          </div>
-          <div id="backpackItems" class="backpack-items"></div>
-        </div>
-      </div>
 
     </main>
     <script type="module" src="js/main.js"></script>

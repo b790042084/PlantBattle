@@ -8,10 +8,10 @@ import { addLog, renderBackpack } from "./hud.js";
 // ─────────────────── Collection Zone ─────────────────
 export let elPlayer = null;
 
-// Reference to backpack floating button for fly animation
+// Reference to backpack sidebar for fly animation
 function getBackpackBtnRect() {
-  var btn = document.getElementById("btnBackpack");
-  return btn ? btn.getBoundingClientRect() : null;
+  var sidebar = document.getElementById("backpackSidebar");
+  return sidebar ? sidebar.getBoundingClientRect() : null;
 }
 
 export function createPlayer() {
