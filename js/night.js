@@ -242,15 +242,14 @@ function monsterAttack(m, plant, ts, slotIdx) {
 
   plant.hp = Math.max(0, plant.hp - dmg);
 
-  // Monster hit resets breakthrough EXP (plant failed to defend)
-  if ((plant.breakthroughExp || 0) > 0 && !plant.isBreakingThrough) {
-    plant.breakthroughExp = 0;
-    addLog(plant.name + " 被攻击，突破经验值已清零！", "crit");
-  }
-
   addLog(m.name + " 攻击 " + plant.name + " -" + dmg + (plant.shield > 0 ? " (盾剩" + plant.shield + ")" : ""), "hit");
 
   if (plant.hp <= 0) {
+    // Only reset breakthrough EXP when plant is killed
+    if ((plant.breakthroughExp || 0) > 0 && !plant.isBreakingThrough) {
+      plant.breakthroughExp = 0;
+      addLog(plant.name + " 被击倒，突破经验值已清零！", "crit");
+    }
     plant.isDormant = true;
     m.eating         = false;
     m.eatRow         = -1;

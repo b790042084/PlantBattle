@@ -685,6 +685,7 @@ label {
   white-space: nowrap;
 }
 .bp-stat { font-size: 9px; color: var(--muted); }
+.bp-exp { font-size: 9px; color: #f0a030; font-weight: 600; }
 
 /* ===== PLANT LIBRARY PANEL (collapsible) ===== */
 .library-panel {
@@ -1079,6 +1080,12 @@ label {
 .plant-slot.slot-dragging {
   opacity: 0.4;
   box-shadow: 0 0 0 2px #f5a623;
+}
+
+/* Swap-highlight when dragging a grid plant over another grid plant */
+.plant-slot.slot-swap-highlight {
+  box-shadow: 0 0 0 2.5px #4da6ff, inset 0 0 8px #4da6ff44;
+  background: #e8f0ff !important;
 }
 
 /* Backpack drag state */
