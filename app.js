@@ -1846,7 +1846,7 @@ function renderRoundConfig() {
   // Build checkboxes for each monster type
   var checkboxHtml = '<div class="rc-monster-checks">';
   monsterTypes.forEach(function(m, idx) {
-    var checked = (!Array.isArray(roundConfig.allowedMonsters) || roundConfig.allowedMonsters.indexOf(idx) !== -1) ? "checked" : "";
+    var checked = (!Array.isArray(roundConfig.allowedMonsters)) ? "checked" : (roundConfig.allowedMonsters.indexOf(idx) !== -1 ? "checked" : "");
     checkboxHtml +=
       '<label class="rc-monster-check-label">' +
         '<input type="checkbox" class="rc-monster-cb" data-idx="' + idx + '" ' + checked + '>' +
@@ -1880,7 +1880,7 @@ function renderRoundConfig() {
     sanitizeRoundConfig(roundConfig);
     renderRoundConfig();
     var typeNames = Array.isArray(roundConfig.allowedMonsters)
-      ? roundConfig.allowedMonsters.map(function(i) { return monsterTypes[i] ? monsterTypes[i].name : ""; }).join("、")
+      ? roundConfig.allowedMonsters.map(function(i) { return monsterTypes[i] ? monsterTypes[i].name : null; }).filter(Boolean).join("、")
       : "全部";
     addLog("波次怪物配置已更新：基础 " + roundConfig.baseCount + " 只，每回合 +" + roundConfig.countPerRound + " 只，允许种类：" + typeNames + "。", "end");
   });
