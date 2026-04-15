@@ -450,6 +450,42 @@ label {
 }
 .plant-slot.has-plant:hover { transform: none; background: rgba(30,80,40,.7); cursor: pointer; }
 
+/* Dormant (killed) plant — greyed out */
+.plant-slot.slot-dormant {
+  background: rgba(60,60,60,.55);
+  border-color: rgba(120,120,120,.5);
+}
+.plant-slot.slot-dormant:hover { background: rgba(60,60,60,.65); cursor: default; }
+.plant-slot.slot-dormant .slot-img {
+  filter: grayscale(100%) brightness(0.6);
+  opacity: 0.6;
+}
+.plant-slot.slot-dormant .slot-name { color: #aaa; }
+.slot-hpfill.dormant { background: linear-gradient(90deg, #888, #666); }
+
+/* Upgrade button on grid plant card */
+.slot-upgrade-btn {
+  border: 0;
+  background: #2b8a3e;
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.4;
+  transition: transform 100ms ease, filter 100ms ease;
+  white-space: nowrap;
+}
+.slot-upgrade-btn:hover:not(:disabled) { transform: scale(1.08); filter: brightness(1.15); }
+.slot-upgrade-btn:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .slot-img {
   width: 38px;
   height: 38px;
@@ -1031,6 +1067,18 @@ label {
 .plant-slot.slot-feed-highlight {
   box-shadow: 0 0 0 2.5px #f0a030, inset 0 0 8px #f0a03044;
   background: #fff8e8 !important;
+}
+
+/* Grid plant drag state */
+.plant-slot.has-plant[draggable="true"] {
+  cursor: grab;
+}
+.plant-slot.has-plant[draggable="true"]:active {
+  cursor: grabbing;
+}
+.plant-slot.slot-dragging {
+  opacity: 0.4;
+  box-shadow: 0 0 0 2px #f5a623;
 }
 
 /* Backpack drag state */

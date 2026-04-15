@@ -70,12 +70,17 @@ export function updateHUD() {
 }
 
 // ─────────────────── Drag state ──────────────────────
-let _dragBpId = null; // backpack item id being dragged
+let _dragBpId = null;      // backpack item id being dragged
+let _dragGridSlot = null;  // grid slot index being dragged (for grid-to-grid feed)
 
 // ─────────────────── Feed logic (shared by drag-drop) ─
 export function feedPlant(slotIdx, backpackId) {
   const plant = gs.grid[slotIdx];
   if (!plant) return false;
+  if (plant.isDormant) {
+    addLog(plant.name + " 正在休眠中，无法喂养！", "dodge");
+    return false;
+  }
 
   const bpIdx = gs.backpack.findIndex(function(b) { return b.id === backpackId; });
   if (bpIdx === -1) return false;
@@ -125,10 +130,48 @@ export function feedPlant(slotIdx, backpackId) {
 // Check if a backpack item can feed a grid plant
 function canFeedPlant(backpackItem, plant) {
   if (!plant || !backpackItem) return false;
+  if (plant.isDormant) return false;
   if (backpackItem.plantIdx !== plant.plantIdx) return false;
   if ((backpackItem.stage || 1) !== (plant.stage || 1)) return false;
   if ((plant.stage || 1) >= PLANT_STAGES) return false;
   if (plant.isBreakingThrough) return false;
+  return true;
+}
+
+// Check if a grid plant can feed another grid plant
+function canGridFeedPlant(sourcePlant, targetPlant) {
+  if (!sourcePlant || !targetPlant) return false;
+  if (targetPlant.isDormant || sourcePlant.isDormant) return false;
+  if (sourcePlant.plantIdx !== targetPlant.plantIdx) return false;
+  if ((sourcePlant.stage || 1) !== (targetPlant.stage || 1)) return false;
+  if ((targetPlant.stage || 1) >= PLANT_STAGES) return false;
+  if (targetPlant.isBreakingThrough) return false;
+  return true;
+}
+
+// Feed one grid plant into another (consuming the source)
+function feedPlantFromGrid(targetSlotIdx, sourceSlotIdx) {
+  const target = gs.grid[targetSlotIdx];
+  const source = gs.grid[sourceSlotIdx];
+  if (!target || !source) return false;
+  if (!canGridFeedPlant(source, target)) return false;
+
+  const plantStage = target.stage || 1;
+  const expNeeded = getBreakthroughExp()[plantStage - 1] || 3;
+  target.breakthroughExp = (target.breakthroughExp || 0) + 1;
+
+  // Remove the source plant from grid
+  gs.grid[sourceSlotIdx] = null;
+
+  if (target.breakthroughExp >= expNeeded) {
+    target.isBreakingThrough = true;
+    target.breakthroughTimer = getBreakthroughTime();
+    target.stage = plantStage + 1;
+    addLog("🔥 " + target.name + " 突破经验已满！开始突破（" + getBreakthroughTime() + "秒）…", "end");
+  } else {
+    addLog("🌿 喂养 " + target.name + " +1 突破经验（" + target.breakthroughExp + "/" + expNeeded + "）", "end");
+  }
+  renderGrid();
   return true;
 }
 
@@ -147,10 +190,13 @@ export function initGrid() {
     s.className    = "plant-slot";
     s.dataset.slot = i;
     s.addEventListener("click", onSlotClick);
-    // Drag-drop: allow dropping backpack plants onto grid slots
+    // Drag-drop: allow dropping backpack plants or grid plants onto grid slots
     s.addEventListener("dragover", onSlotDragOver);
     s.addEventListener("dragleave", onSlotDragLeave);
     s.addEventListener("drop", onSlotDrop);
+    // Grid plant drag: start dragging a grid plant for grid-to-grid feed
+    s.addEventListener("dragstart", onSlotDragStart);
+    s.addEventListener("dragend", onSlotDragEnd);
     elPlantingGrid.appendChild(s);
   }
   renderGrid();
@@ -167,17 +213,19 @@ export function renderGrid() {
 
     el.className = "plant-slot" +
       (plant ? " has-plant"      : "") +
+      (plant && plant.isDormant ? " slot-dormant" : "") +
       (canHL ? " slot-highlight" : "");
 
     if (plant) {
       const ratio = Math.max(0, plant.hp) / plant.maxHp;
-      const cls   = ratio < 0.25 ? "crit" : ratio < 0.5 ? "low" : "";
+      const cls   = plant.isDormant ? "dormant" : ratio < 0.25 ? "crit" : ratio < 0.5 ? "low" : "";
       const pDef  = plantLibrary[plant.plantIdx];
       const img   = escHtml(getImg(pDef));
       const fb    = escHtml(buildSvgFallback(pDef.name, pDef.role));
       const shieldBadge = plant.shield > 0
         ? '<div class="slot-shield-badge">🛡' + plant.shield + "</div>" : "";
       const statusParts = [];
+      if (plant.isDormant) statusParts.push("💤休眠");
       if (plant.poisonTurns > 0) statusParts.push("💧" + plant.poisonTurns);
       if (plant.slowTurns   > 0) statusParts.push("❄"  + plant.slowTurns);
 
@@ -194,6 +242,12 @@ export function renderGrid() {
 
       // Level badge
       const levelBadge = (plant.plantLevel || 0) > 0 ? '<div class="slot-level-badge">Lv.' + plant.plantLevel + '</div>' : '';
+
+      // Upgrade button on plant card
+      const upgradeCost = getPlantUpgradeCost(plant.plantLevel || 0);
+      const canAfford = gs.gold >= upgradeCost;
+      const upgradeBtn = '<button class="slot-upgrade-btn" data-slot="' + i + '"' +
+        (canAfford && !plant.isDormant ? '' : ' disabled') + '>⬆' + upgradeCost + '💰</button>';
 
       // Breakthrough EXP / progress badge
       let breakthroughBadge = '';
@@ -215,11 +269,29 @@ export function renderGrid() {
         '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
           '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
         '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
+        upgradeBtn +
         breakthroughBadge +
         '<div class="slot-hpbar"><div class="slot-hpfill ' + cls + '" style="width:' + (ratio*100) + '%"></div></div>' +
         '<div class="slot-hptext">' + Math.max(0,plant.hp) + "/" + plant.maxHp +
           (statusParts.length ? " · " + statusParts.join(" ") : "") + "</div>";
+
+      // Attach upgrade button click handler
+      const upgradeEl = el.querySelector(".slot-upgrade-btn");
+      if (upgradeEl) {
+        upgradeEl.addEventListener("click", function(e) {
+          e.stopPropagation();
+          upgradePlantOnGrid(i);
+        });
+      }
+
+      // Make grid plant draggable for grid-to-grid feed
+      if (!plant.isDormant) {
+        el.draggable = true;
+      } else {
+        el.draggable = false;
+      }
     } else {
+      el.draggable = false;
       const col = i % cols + 1;
       const row = Math.floor(i / cols) + 1;
       el.innerHTML = '<div class="slot-empty">' + (canHL ? "点击\n放置" : col + "-" + row) + "</div>";
@@ -232,6 +304,10 @@ export function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
+    if (plant.isDormant) {
+      addLog(plant.name + " 正在休眠中，无法取回！", "dodge");
+      return;
+    }
     // Click on a planted plant → pick it up back to backpack
     gs.grid[idx] = null;
     gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0 });
@@ -290,11 +366,45 @@ export function onSlotClick(e) {
 }
 
 // ─────────────────── Drag-drop handlers ──────────────
+function onSlotDragStart(e) {
+  const idx = parseInt(e.currentTarget.dataset.slot, 10);
+  const plant = gs.grid[idx];
+  if (!plant || plant.isDormant) {
+    e.preventDefault();
+    return;
+  }
+  _dragGridSlot = idx;
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", "grid:" + idx);
+  e.currentTarget.classList.add("slot-dragging");
+}
+
+function onSlotDragEnd(e) {
+  e.currentTarget.classList.remove("slot-dragging");
+  _dragGridSlot = null;
+  elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+    s.classList.remove("slot-feed-highlight");
+    s.classList.remove("slot-highlight");
+  });
+}
+
 function onSlotDragOver(e) {
   e.preventDefault();
-  if (_dragBpId === null) return;
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
   const plant = gs.grid[idx];
+
+  // Grid-to-grid drag
+  if (_dragGridSlot !== null) {
+    if (_dragGridSlot === idx) return; // Can't drop on self
+    const source = gs.grid[_dragGridSlot];
+    if (plant && canGridFeedPlant(source, plant)) {
+      e.currentTarget.classList.add("slot-feed-highlight");
+    }
+    return;
+  }
+
+  // Backpack-to-grid drag
+  if (_dragBpId === null) return;
   if (!plant) {
     // Allow drop onto empty slot for placement
     e.currentTarget.classList.add("slot-highlight");
@@ -316,10 +426,21 @@ function onSlotDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove("slot-feed-highlight");
   e.currentTarget.classList.remove("slot-highlight");
-  if (_dragBpId === null) return;
 
   const idx   = parseInt(e.currentTarget.dataset.slot, 10);
   const plant = gs.grid[idx];
+
+  // Grid-to-grid drop
+  if (_dragGridSlot !== null) {
+    if (_dragGridSlot !== idx && plant) {
+      feedPlantFromGrid(idx, _dragGridSlot);
+    }
+    _dragGridSlot = null;
+    return;
+  }
+
+  // Backpack-to-grid drop
+  if (_dragBpId === null) return;
 
   if (plant) {
     // Try to feed
@@ -489,6 +610,30 @@ export function upgradePlantInBackpack(backpackId) {
   const pDef = plantLibrary[item.plantIdx];
   addLog(pDef.name + " 升级到 Lv." + item.plantLevel + "！", "end");
   renderBackpack();
+  updateHUD();
+}
+
+export function upgradePlantOnGrid(slotIdx) {
+  const plant = gs.grid[slotIdx];
+  if (!plant) { addLog("该格子没有植物！", "dodge"); return; }
+  const cost = getPlantUpgradeCost(plant.plantLevel || 0);
+  if (gs.gold < cost) { addLog("金钱不足！需要 " + cost + " 金钱", "dodge"); return; }
+  gs.gold -= cost;
+  plant.plantLevel = (plant.plantLevel || 0) + 1;
+  const pDef = plantLibrary[plant.plantIdx];
+  const stage = plant.stage || 1;
+  const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
+  const levelMult = 1 + plant.plantLevel * getPlantUpgradeStatMult();
+  const newMaxHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
+  const newAtk    = Math.floor(pDef.atk * stageRatio * levelMult);
+  const newDf     = Math.floor(pDef.df  * stageRatio * levelMult);
+  const hpDiff = newMaxHp - plant.maxHp;
+  plant.maxHp = newMaxHp;
+  plant.hp = Math.min(plant.maxHp, plant.hp + Math.max(0, hpDiff));
+  plant.atk = newAtk;
+  plant.df = newDf;
+  addLog(pDef.name + " 升级到 Lv." + plant.plantLevel + "！", "end");
+  renderGrid();
   updateHUD();
 }
 

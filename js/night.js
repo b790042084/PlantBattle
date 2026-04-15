@@ -110,10 +110,9 @@ function nightLoop(ts) {
     if (m.eating) {
       const slotIdx = m.eatRow * activeCols + m.lane;
       const target  = gs.grid[slotIdx];
-      if (!target || target.hp <= 0) {
+      if (!target || target.hp <= 0 || target.isDormant) {
         m.eating  = false;
         m.eatRow  = -1;
-        gs.grid[slotIdx] = null;
         renderGrid();
         if (m.el) m.el.classList.remove("eating");
       } else {
@@ -128,7 +127,7 @@ function nightLoop(ts) {
         if (m.y >= Y_ROW[r]) {
           const slotIdx = r * activeCols + m.lane;
           const plant   = gs.grid[slotIdx];
-          if (plant && plant.hp > 0) {
+          if (plant && plant.hp > 0 && !plant.isDormant) {
             m.y      = Y_ROW[r];
             m.eating = true;
             m.eatRow = r;
@@ -252,11 +251,11 @@ function monsterAttack(m, plant, ts, slotIdx) {
   addLog(m.name + " 攻击 " + plant.name + " -" + dmg + (plant.shield > 0 ? " (盾剩" + plant.shield + ")" : ""), "hit");
 
   if (plant.hp <= 0) {
-    gs.grid[slotIdx] = null;
+    plant.isDormant = true;
     m.eating         = false;
     m.eatRow         = -1;
     if (m.el) m.el.classList.remove("eating");
-    addLog(plant.name + " 被击倒了！", "crit");
+    addLog(plant.name + " 被击倒了！进入休眠状态…", "crit");
     renderGrid();
   }
 }
@@ -266,7 +265,7 @@ function doPlantAttacks(ts) {
   const totalSlots = Math.min(gs.activeSlots, SLOTS);
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
-    if (!plant || plant.hp <= 0) continue;
+    if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     if (ts - plant.lastAttackTime < plant.attackInterval) continue;
     plant.lastAttackTime = ts;
 
@@ -382,9 +381,8 @@ function doGoldGeneration() {
   const totalSlots = Math.min(gs.activeSlots, SLOTS);
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
-    if (!plant || plant.hp <= 0) continue;
+    if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     const pDef = plantLibrary[plant.plantIdx];
-    // During breakthrough, use pre-breakthrough stage for gold
     const effectiveStage = plant.isBreakingThrough ? (plant.stage || 1) - 1 : (plant.stage || 1);
     const stageIdx = Math.max(0, effectiveStage - 1);
     const stageRatio = STAGE_RATIOS[stageIdx] || STAGE_RATIOS[0];
@@ -403,7 +401,7 @@ function doBreakthroughTick() {
   let changed = false;
   for (let i = 0; i < totalSlots; i++) {
     const plant = gs.grid[i];
-    if (!plant || plant.hp <= 0) continue;
+    if (!plant || plant.hp <= 0 || plant.isDormant) continue;
     if (!plant.isBreakingThrough) continue;
 
     plant.breakthroughTimer = (plant.breakthroughTimer || 0) - 1;

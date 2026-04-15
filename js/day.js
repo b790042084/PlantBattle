@@ -3,7 +3,7 @@
 import {
   waveTypes, plantSpawnConfigs, plantLibrary,
   COLLECTION_ROWS, STRIPE_HEIGHT, SPAWN_ROW, MAX_SPAWNED,
-  gameConfig, LANES, isBlackStripe,
+  gameConfig, LANES, SLOTS, isBlackStripe,
 } from "./config.js";
 import { gs, elCollect, elCollectHint } from "./state.js";
 import { uid, getImg, buildSvgFallback } from "./utils.js";
@@ -253,6 +253,19 @@ export function startDay() {
   gs.player.y = 95;    // Start at bottom
   gs.player.row = SPAWN_ROW;  // Spawn zone row
   gs.player.isJumping = false;
+
+  // Restore all plants to full HP and wake dormant plants
+  const totalSlots = Math.min(gs.activeSlots, SLOTS);
+  for (let i = 0; i < totalSlots; i++) {
+    const plant = gs.grid[i];
+    if (!plant) continue;
+    plant.hp = plant.maxHp;
+    plant.isDormant = false;
+    plant.shield = 0;
+    plant.poisonTurns = 0;
+    plant.poisonDmg = 0;
+    plant.slowTurns = 0;
+  }
 
   // Remove dark fog
   elCollect.classList.remove("fog-active");
