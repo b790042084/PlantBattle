@@ -6,7 +6,7 @@
 // =============================================================
 
 const STORAGE_KEY = "plant-battle-td-v1";
-const APP_VERSION = "v0.0.0-bdf3a3c";
+const APP_VERSION = "v0.0.0-07df3fe";
 
 // ─────────────────── Plant Library ───────────────────
 const plantLibrary = [
