@@ -79,6 +79,9 @@ export function updateHUD() {
 // ─────────────────── Drag state ──────────────────────
 let _dragBpId = null;      // backpack item id being dragged
 let _dragGridSlot = null;  // grid slot index being dragged (for grid-to-grid feed)
+const SELL_STAGE_MULT_STEP = 0.6;
+const SELL_LEVEL_MULT_STEP = 0.35;
+const SELL_EXP_BONUS = 2;
 
 function clearBackpackFeedHighlights() {
   elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
@@ -310,9 +313,9 @@ function getBackpackSellValue(item) {
   const level = item.plantLevel || 0;
   const bExp = item.breakthroughExp || 0;
   const base = Math.max(5, Math.floor((pDef.goldPerSec || 1) * 10));
-  const stageMult = 1 + (stage - 1) * 0.6;
-  const levelMult = 1 + level * 0.35;
-  return Math.max(1, Math.floor(base * stageMult * levelMult + bExp * 2));
+  const stageMult = 1 + (stage - 1) * SELL_STAGE_MULT_STEP;
+  const levelMult = 1 + level * SELL_LEVEL_MULT_STEP;
+  return Math.max(1, Math.floor(base * stageMult * levelMult + bExp * SELL_EXP_BONUS));
 }
 
 function getGridPlantSellValue(plant) {

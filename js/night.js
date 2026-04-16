@@ -21,6 +21,7 @@ import { addLog, updateHUD, renderGrid, initGrid, renderBackpack } from "./hud.j
 import { startDay } from "./day.js";
 
 const MONSTER_MOVE_MULTIPLIER = 1.6;
+const DAMAGE_POP_VERTICAL_OFFSET = 4;
 const elMonsterZoneLevel = document.getElementById("monsterZoneLevel");
 const elMonsterZoneRemain = document.getElementById("monsterZoneRemain");
 
@@ -462,7 +463,7 @@ function showMonsterDamagePop(monster, damage, isCrit) {
   pop.className = "monster-damage-pop" + (isCrit ? " crit" : "");
   pop.textContent = "-" + Math.floor(damage);
   pop.style.left = (monRect.left + monRect.width / 2 - wrapRect.left) + "px";
-  pop.style.top  = (monRect.top - wrapRect.top - 4) + "px";
+  pop.style.top  = (monRect.top - wrapRect.top - DAMAGE_POP_VERTICAL_OFFSET) + "px";
   elBattleArea.appendChild(pop);
   pop.addEventListener("animationend", function() { pop.remove(); }, { once: true });
 }
