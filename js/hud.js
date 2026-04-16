@@ -428,9 +428,8 @@ export function renderGrid() {
       const canAfford = gs.gold >= upgradeCost;
       const upgradeBtn = '<button class="slot-upgrade-btn" data-slot="' + i + '"' +
         (canAfford && !plant.isDormant ? '' : ' disabled') + '>⬆' + upgradeCost + '💰</button>';
-      const sellValue = getGridPlantSellValue(plant);
       const sellBtn = '<button class="slot-sell-btn" data-sell-slot="' + i + '"' +
-        (plant.isDormant ? ' disabled' : '') + '>💸' + sellValue + '</button>';
+        (plant.isDormant ? ' disabled' : '') + '>💸出售</button>';
 
       // Breakthrough EXP / progress badge
       let breakthroughBadge = '';
@@ -724,7 +723,6 @@ export function renderBackpack() {
 
     const effectiveHp  = Math.floor(p.hp  * stageRatio * levelMult);
     const effectiveAtk = Math.floor(p.atk * stageRatio * levelMult);
-    const sellValue = getBackpackSellValue(item);
 
     // Breakthrough EXP info
     const bExp = item.breakthroughExp || 0;
@@ -739,7 +737,7 @@ export function renderBackpack() {
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
       bExpInfo +
-      '<button class="bp-sell-btn" data-sell-id="' + item.id + '">出售 +' + sellValue + '💰</button>' +
+      '<button class="bp-sell-btn" data-sell-id="' + item.id + '">出售</button>' +
       "</div>";
   }).join("");
 
