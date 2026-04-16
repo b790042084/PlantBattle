@@ -592,7 +592,7 @@ function onSlotDrop(e) {
       const plantLevel = item.plantLevel || 0;
       gs.grid[idx] = createGridPlantFromBackpackItem(item, idx);
       gs.selectedId = null;
-      addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % cols + 1) + "-" + (Math.floor(idx / cols) + 1) + " 位置", "end");
+      addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % LANES + 1) + "-" + (Math.floor(idx / LANES) + 1) + " 位置", "end");
       renderBackpack();
       renderGrid();
     }
@@ -663,9 +663,10 @@ export function renderBackpack() {
       el.classList.remove("bp-dragging");
       _dragBpId = null;
       // Clean up any lingering highlights
-      elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+      elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
         s.classList.remove("slot-feed-highlight");
         s.classList.remove("slot-highlight");
+        s.classList.remove("slot-swap-highlight");
       });
     });
   });
