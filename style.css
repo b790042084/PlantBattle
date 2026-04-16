@@ -465,6 +465,7 @@ label {
   align-items: center;
   padding: 8px;
   gap: 6px;
+  overflow: hidden;
 }
 .planting-zone-bg > .zone-label {
   position: static;
@@ -495,10 +496,11 @@ label {
 .planting-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 6px;
   width: 100%;
   flex: 1;
+  min-height: 0;
 }
 
 .plant-slot {
