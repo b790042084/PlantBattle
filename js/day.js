@@ -3,7 +3,7 @@
 import {
   waveTypes, plantSpawnConfigs, plantLibrary,
   COLLECTION_ROWS, STRIPE_HEIGHT, SPAWN_ROW, MAX_SPAWNED,
-  gameConfig, LANES, SLOTS, isBlackStripe,
+  gameConfig, LANES, SLOTS, isBlackStripe, waveList,
 } from "./config.js";
 import { gs, elCollect, elCollectHint } from "./state.js";
 import { uid, getImg, buildSvgFallback } from "./utils.js";
@@ -19,6 +19,18 @@ import { startNight } from "./night.js";
 let playerMoveInterval = null;
 let waveUpdateInterval = null;
 let waveSpawnInterval  = null;
+const elMonsterZoneLevel = document.getElementById("monsterZoneLevel");
+const elMonsterZoneRemain = document.getElementById("monsterZoneRemain");
+
+function updateMonsterZoneStatusBeforeNight() {
+  if (!elMonsterZoneLevel || !elMonsterZoneRemain) return;
+  if (gs.round <= 0) {
+    elMonsterZoneLevel.textContent = "关卡：--";
+  } else {
+    elMonsterZoneLevel.textContent = "关卡：第 " + gs.round + " / " + waveList.length + " 关";
+  }
+  elMonsterZoneRemain.textContent = "剩余僵尸：0";
+}
 
 // ─────────────────── Wave helpers ────────────────────
 function getRandomWaveType() {
@@ -272,6 +284,7 @@ export function startDay() {
   gs.player.y = 95;    // Start at bottom
   gs.player.row = SPAWN_ROW;  // Spawn zone row
   gs.player.isJumping = false;
+  updateMonsterZoneStatusBeforeNight();
 
   // Restore all plants to full HP and wake dormant plants
   for (let i = 0; i < SLOTS; i++) {
@@ -400,6 +413,7 @@ function endDay() {
 export function startDusk() {
   gs.phase = "dusk";
   gs.phaseLeft = gameConfig.duskDuration;
+  updateMonsterZoneStatusBeforeNight();
   updateHUD();
   addLog("════ 黄昏时分！摆放植物，" + gameConfig.duskDuration + " 秒后夜晚降临 ════", "round");
 

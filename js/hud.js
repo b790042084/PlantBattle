@@ -79,6 +79,13 @@ export function updateHUD() {
 // ─────────────────── Drag state ──────────────────────
 let _dragBpId = null;      // backpack item id being dragged
 let _dragGridSlot = null;  // grid slot index being dragged (for grid-to-grid feed)
+const SELL_STAGE_MULT_STEP = 0.6;
+const SELL_LEVEL_MULT_STEP = 0.35;
+const SELL_EXP_BONUS = 2;
+
+function clearBackpackFeedHighlights() {
+  elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
+}
 
 // ─────────────────── Feed logic (shared by drag-drop) ─
 export function feedPlant(slotIdx, backpackId) {
@@ -153,6 +160,47 @@ function canGridFeedPlant(sourcePlant, targetPlant) {
   if ((sourcePlant.stage || 1) !== (targetPlant.stage || 1)) return false;
   if ((targetPlant.stage || 1) >= PLANT_STAGES) return false;
   if (targetPlant.isBreakingThrough) return false;
+  return true;
+}
+
+function canBackpackFeedPlant(sourceItem, targetItem) {
+  if (!sourceItem || !targetItem) return false;
+  if (sourceItem.id === targetItem.id) return false;
+  if (sourceItem.plantIdx !== targetItem.plantIdx) return false;
+  if ((sourceItem.stage || 1) !== (targetItem.stage || 1)) return false;
+  if ((targetItem.stage || 1) >= PLANT_STAGES) return false;
+  return true;
+}
+
+function feedPlantInBackpack(targetId, sourceId) {
+  if (targetId === sourceId) return false;
+  const targetIdx = gs.backpack.findIndex(function(b) { return b.id === targetId; });
+  const sourceIdx = gs.backpack.findIndex(function(b) { return b.id === sourceId; });
+  if (targetIdx === -1 || sourceIdx === -1) return false;
+
+  const target = gs.backpack[targetIdx];
+  const source = gs.backpack[sourceIdx];
+  if (!canBackpackFeedPlant(source, target)) {
+    addLog("背包吞噬失败：只能吞噬同名同阶且未满阶植物。", "dodge");
+    return false;
+  }
+
+  const stage = target.stage || 1;
+  const expNeeded = getBreakthroughExp()[stage - 1] || 3;
+  target.breakthroughExp = (target.breakthroughExp || 0) + 1;
+
+  gs.backpack.splice(sourceIdx, 1);
+  if (gs.selectedId === sourceId) gs.selectedId = null;
+
+  if (target.breakthroughExp >= expNeeded) {
+    target.breakthroughExp = 0;
+    target.stage = Math.min(PLANT_STAGES, stage + 1);
+    addLog("🌟 " + plantLibrary[target.plantIdx].name + " 在背包中吞噬进化为 " + STAGE_NAMES[target.stage - 1] + "！", "end");
+  } else {
+    addLog("🌿 " + plantLibrary[target.plantIdx].name + " 在背包中吞噬 +1 突破经验（" + target.breakthroughExp + "/" + expNeeded + "）", "end");
+  }
+
+  renderBackpack();
   return true;
 }
 
@@ -259,6 +307,51 @@ function createBackpackItemFromGridPlant(plant) {
   };
 }
 
+function getBackpackSellValue(item) {
+  const pDef = plantLibrary[item.plantIdx];
+  const stage = item.stage || 1;
+  const level = item.plantLevel || 0;
+  const bExp = item.breakthroughExp || 0;
+  const base = Math.max(5, Math.floor((pDef.goldPerSec || 1) * 10));
+  const stageMult = 1 + (stage - 1) * SELL_STAGE_MULT_STEP;
+  const levelMult = 1 + level * SELL_LEVEL_MULT_STEP;
+  return Math.max(1, Math.floor(base * stageMult * levelMult + bExp * SELL_EXP_BONUS));
+}
+
+function getGridPlantSellValue(plant) {
+  return getBackpackSellValue(createBackpackItemFromGridPlant(plant));
+}
+
+function sellBackpackPlant(id) {
+  const bpIdx = gs.backpack.findIndex(function(b) { return b.id === id; });
+  if (bpIdx === -1) return;
+  const item = gs.backpack[bpIdx];
+  const pDef = plantLibrary[item.plantIdx];
+  const gain = getBackpackSellValue(item);
+  gs.backpack.splice(bpIdx, 1);
+  if (gs.selectedId === id) gs.selectedId = null;
+  gs.gold += gain;
+  addLog("💰 已出售背包植物 " + pDef.name + "，获得 " + gain + " 金钱", "end");
+  renderBackpack();
+  updateHUD();
+}
+
+function sellGridPlant(slotIdx) {
+  const plant = gs.grid[slotIdx];
+  if (!plant) return;
+  if (plant.isDormant) {
+    addLog("休眠植物无法出售。", "dodge");
+    return;
+  }
+  const gain = getGridPlantSellValue(plant);
+  const name = plant.name;
+  gs.grid[slotIdx] = null;
+  gs.gold += gain;
+  addLog("💰 已出售种植区植物 " + name + "，获得 " + gain + " 金钱", "end");
+  renderGrid();
+  updateHUD();
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -331,12 +424,15 @@ export function renderGrid() {
 
       // Level badge
       const levelBadge = (plant.plantLevel || 0) > 0 ? '<div class="slot-level-badge">Lv.' + plant.plantLevel + '</div>' : '';
+      const atkBadge = '<div class="slot-atk-badge">⚔ ' + plant.atk + '</div>';
 
       // Upgrade button on plant card
       const upgradeCost = getPlantUpgradeCost(plant.plantLevel || 0);
       const canAfford = gs.gold >= upgradeCost;
       const upgradeBtn = '<button class="slot-upgrade-btn" data-slot="' + i + '"' +
         (canAfford && !plant.isDormant ? '' : ' disabled') + '>⬆' + upgradeCost + '💰</button>';
+      const sellBtn = '<button class="slot-sell-btn" data-sell-slot="' + i + '"' +
+        (plant.isDormant ? ' disabled' : '') + '>💸出售</button>';
 
       // Breakthrough EXP / progress badge
       let breakthroughBadge = '';
@@ -354,11 +450,11 @@ export function renderGrid() {
       }
 
       el.innerHTML =
-        shieldBadge + stageBadge + goldBadge + levelBadge +
+        shieldBadge + stageBadge + goldBadge + levelBadge + atkBadge +
         '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
           '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
         '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
-        upgradeBtn +
+        '<div class="slot-action-row">' + upgradeBtn + sellBtn + '</div>' +
         breakthroughBadge +
         '<div class="slot-hpbar"><div class="slot-hpfill ' + cls + '" style="width:' + (ratio*100) + '%"></div></div>' +
         '<div class="slot-hptext">' + Math.max(0,plant.hp) + "/" + plant.maxHp +
@@ -370,6 +466,13 @@ export function renderGrid() {
         upgradeEl.addEventListener("click", function(e) {
           e.stopPropagation();
           upgradePlantOnGrid(i);
+        });
+      }
+      const sellEl = el.querySelector(".slot-sell-btn");
+      if (sellEl) {
+        sellEl.addEventListener("click", function(e) {
+          e.stopPropagation();
+          sellGridPlant(i);
         });
       }
 
@@ -637,6 +740,7 @@ export function renderBackpack() {
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
       bExpInfo +
+      '<button class="bp-sell-btn" data-sell-id="' + item.id + '">出售</button>' +
       "</div>";
   }).join("");
 
@@ -644,6 +748,12 @@ export function renderBackpack() {
     // Click to select for placement
     el.addEventListener("click", function() {
       const id = parseInt(el.dataset.id, 10);
+      if (gs.selectedId !== null && gs.selectedId !== id) {
+        if (feedPlantInBackpack(id, gs.selectedId)) {
+          renderGrid();
+          return;
+        }
+      }
       gs.selectedId = gs.selectedId === id ? null : id;
       renderBackpack();
       renderGrid();
@@ -663,12 +773,50 @@ export function renderBackpack() {
     el.addEventListener("dragend", function() {
       el.classList.remove("bp-dragging");
       _dragBpId = null;
+      clearBackpackFeedHighlights();
       // Clean up any lingering highlights
       elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
         s.classList.remove("slot-feed-highlight");
         s.classList.remove("slot-highlight");
         s.classList.remove("slot-swap-highlight");
       });
+    });
+
+    el.addEventListener("dragover", function(e) {
+      if (_dragBpId === null) return;
+      const targetId = parseInt(el.dataset.id, 10);
+      if (_dragBpId === targetId) return;
+      const source = gs.backpack.find(function(b) { return b.id === _dragBpId; });
+      const target = gs.backpack.find(function(b) { return b.id === targetId; });
+      if (!canBackpackFeedPlant(source, target)) return;
+      e.preventDefault();
+      el.classList.add("bp-feed-highlight");
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    });
+
+    el.addEventListener("dragleave", function() {
+      el.classList.remove("bp-feed-highlight");
+    });
+
+    el.addEventListener("drop", function(e) {
+      e.preventDefault();
+      el.classList.remove("bp-feed-highlight");
+      const targetId = parseInt(el.dataset.id, 10);
+      if (_dragBpId !== null && _dragBpId !== targetId) {
+        if (feedPlantInBackpack(targetId, _dragBpId)) {
+          renderGrid();
+        }
+      }
+      _dragBpId = null;
+      clearBackpackFeedHighlights();
+    });
+  });
+
+  elBackpackItems.querySelectorAll(".bp-sell-btn").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.sellId, 10);
+      sellBackpackPlant(id);
     });
   });
 }

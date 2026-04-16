@@ -454,6 +454,20 @@ label {
   color: rgba(200,200,255,.25);
   font-size: 16px;
 }
+.monster-zone-status {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  color: rgba(225,235,255,.92);
+  font-size: 12px;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,.7);
+  pointer-events: none;
+}
 
 /* Planting zone background */
 .planting-zone-bg {
@@ -565,6 +579,32 @@ label {
 }
 .slot-upgrade-btn:hover:not(:disabled) { transform: scale(1.08); filter: brightness(1.15); }
 .slot-upgrade-btn:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.slot-action-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.slot-sell-btn {
+  border: 0;
+  background: #e67700;
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.4;
+  transition: transform 100ms ease, filter 100ms ease;
+  white-space: nowrap;
+}
+.slot-sell-btn:hover:not(:disabled) { transform: scale(1.08); filter: brightness(1.08); }
+.slot-sell-btn:disabled {
   background: #555;
   color: #999;
   cursor: not-allowed;
@@ -752,6 +792,11 @@ label {
   box-shadow: 0 0 0 3px rgba(245,166,35,.35);
   background: #fff8e8;
 }
+.bp-item.bp-feed-highlight {
+  border-color: #ffd43b;
+  box-shadow: 0 0 0 3px rgba(255,212,59,.35);
+  background: #fff9db;
+}
 .bp-item img {
   width: 44px;
   height: 44px;
@@ -773,6 +818,22 @@ label {
 }
 .bp-stat { font-size: 9px; color: var(--muted); }
 .bp-exp { font-size: 9px; color: #f0a030; font-weight: 600; }
+.bp-sell-btn {
+  margin-top: 3px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: #e67700;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.bp-sell-btn:hover {
+  filter: brightness(1.08);
+}
 
 /* ===== PLANT LIBRARY PANEL (collapsible) ===== */
 .library-panel {
@@ -1104,6 +1165,17 @@ label {
   padding: 1px 4px;
   font-weight: 700;
 }
+.slot-atk-badge {
+  position: absolute;
+  top: 2px;
+  right: 3px;
+  font-size: 8px;
+  background: #ffe3e3cc;
+  color: #c92a2a;
+  border-radius: 999px;
+  padding: 1px 4px;
+  font-weight: 700;
+}
 
 /* Gold animation */
 @keyframes goldPop {
@@ -1118,6 +1190,25 @@ label {
   pointer-events: none;
   z-index: 30;
   animation: goldPop 0.8s ease-out forwards;
+}
+@keyframes monsterDamagePop {
+  0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -18px) scale(0.9); opacity: 0; }
+}
+.monster-damage-pop {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffe066;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+  pointer-events: none;
+  z-index: 31;
+  animation: monsterDamagePop 500ms ease-out forwards;
+}
+.monster-damage-pop.crit {
+  color: #ff8787;
+  font-size: 15px;
 }
 
 /* ===== BREAKTHROUGH UI ===== */
