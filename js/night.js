@@ -20,6 +20,23 @@ import { addLog, updateHUD, renderGrid, initGrid, renderBackpack } from "./hud.j
 // Note: circular import — startDay is only called at runtime inside setTimeout
 import { startDay } from "./day.js";
 
+const MONSTER_MOVE_MULTIPLIER = 1.6;
+const elMonsterZoneLevel = document.getElementById("monsterZoneLevel");
+const elMonsterZoneRemain = document.getElementById("monsterZoneRemain");
+
+function updateMonsterZoneStatus() {
+  if (!elMonsterZoneLevel || !elMonsterZoneRemain) return;
+  if (gs.round <= 0) {
+    elMonsterZoneLevel.textContent = "关卡：--";
+    elMonsterZoneRemain.textContent = "剩余僵尸：--";
+    return;
+  }
+  const aliveCount = gs.monsters.reduce(function(sum, m) { return sum + (m.dead ? 0 : 1); }, 0);
+  const remaining = gs.phase === "night" ? (aliveCount + gs.mQueue.length) : 0;
+  elMonsterZoneLevel.textContent = "关卡：第 " + gs.round + " / " + waveList.length + " 关";
+  elMonsterZoneRemain.textContent = "剩余僵尸：" + remaining;
+}
+
 // ─────────────────── Build queue ─────────────────────
 function buildQueue() {
   const waveIdx = gs.round - 1;
@@ -93,6 +110,7 @@ export function startNight() {
   }
   nightMsg += " ════";
   addLog(nightMsg, "round");
+  updateMonsterZoneStatus();
   gs.animId = requestAnimationFrame(nightLoop);
 }
 
@@ -138,7 +156,7 @@ function nightLoop(ts) {
     } else {
       const baseSpeed = Math.max(0.08, m.speed || 0);
       const effectiveSpeed = ts < m.slowUntil ? Math.max(0.03, baseSpeed * 0.35) : baseSpeed;
-      m.y += effectiveSpeed * dt;
+      m.y += effectiveSpeed * dt * MONSTER_MOVE_MULTIPLIER;
 
       let blocked = false;
       // Check if blocked by plants
@@ -214,6 +232,7 @@ function nightLoop(ts) {
   updateMonsterPositions();
   renderGrid();
   renderCrystal();
+  updateMonsterZoneStatus();
 
   if (gs.monsters.length === 0 && gs.mQueue.length === 0) { endNight(); return; }
 
@@ -368,13 +387,16 @@ function plantAttack(plant, target, ts, fireFx) {
 
   let dmg     = Math.floor(plant.atk * coef);
   let critTag = "";
+  let isCrit  = false;
   if (Math.random() < plant.crit) {
     dmg     = Math.floor(dmg * plant.critDmg);
     critTag = "【暴击】";
+    isCrit  = true;
   }
   dmg = Math.max(1, dmg);
 
   target.hp = Math.max(0, target.hp - dmg);
+  showMonsterDamagePop(target, dmg, isCrit);
 
   const skillTag = usingSkill ? " 【" + plant.skillName + "】" : "";
   addLog(plant.name + skillTag + " → " + target.name + " -" + dmg + critTag, critTag ? "crit" : "hit");
@@ -419,6 +441,7 @@ function doPoison() {
     const m = gs.monsters[i];
     if (m.dead || m.poisonTurns <= 0 || !m.poisonDmg) continue;
     m.hp = Math.max(0, m.hp - m.poisonDmg);
+    showMonsterDamagePop(m, m.poisonDmg, false);
     m.poisonTurns -= 1;
     addLog(m.name + " 中毒持续伤害 -" + m.poisonDmg + "（剩余 " + m.poisonTurns + " 次）", "dodge");
     if (m.hp <= 0) {
@@ -430,6 +453,19 @@ function doPoison() {
       addLog(m.name + " 因中毒倒下！+" + (m.reward || 10) + "分/💰", "end");
     }
   }
+}
+
+function showMonsterDamagePop(monster, damage, isCrit) {
+  if (!monster || !monster.el || damage <= 0) return;
+  const monRect  = monster.el.getBoundingClientRect();
+  const wrapRect = elBattleArea.getBoundingClientRect();
+  const pop = document.createElement("div");
+  pop.className = "monster-damage-pop" + (isCrit ? " crit" : "");
+  pop.textContent = "-" + Math.floor(damage);
+  pop.style.left = (monRect.left + monRect.width / 2 - wrapRect.left) + "px";
+  pop.style.top  = (monRect.top - wrapRect.top - 4) + "px";
+  elBattleArea.appendChild(pop);
+  pop.addEventListener("animationend", function() { pop.remove(); }, { once: true });
 }
 
 // ─────────────────── Gold Generation ─────────────────
@@ -561,6 +597,7 @@ function victory() {
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
   gs.phase = "victory";
+  updateMonsterZoneStatus();
   updateHUD();
   addLog("🏆 恭喜通关！全部 " + waveList.length + " 关怪物已击败！最终分数：" + gs.score, "end");
 }
@@ -577,6 +614,7 @@ function levelFailed() {
   // Remove dark fog
   elCollect.classList.remove("fog-active");
   gs.phase = "idle";
+  updateMonsterZoneStatus();
   updateHUD();
   addLog("❌ 第 " + gs.round + " 关挑战失败！水晶被摧毁，僵尸突破了防线。", "crit");
   addLog("⏳ 3 秒后将重新开始第 " + gs.round + " 关…", "round");
@@ -597,6 +635,7 @@ export function endNight() {
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
   gs.mQueue   = [];
+  updateMonsterZoneStatus();
   addLog("🎉 第 " + gs.round + " 关胜利！当前分数：" + gs.score, "end");
   if (gs.round >= waveList.length) {
     victory();
@@ -656,6 +695,7 @@ export function fullReset() {
 
   gs.monsters    = [];
   gs.mQueue      = [];
+  updateMonsterZoneStatus();
   elCollect.querySelectorAll(".spawned-plant").forEach(function(e) { e.remove(); });
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   if (elCollectHint) elCollectHint.style.display = "";

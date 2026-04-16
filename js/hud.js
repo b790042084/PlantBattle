@@ -156,6 +156,47 @@ function canGridFeedPlant(sourcePlant, targetPlant) {
   return true;
 }
 
+function canBackpackFeedPlant(sourceItem, targetItem) {
+  if (!sourceItem || !targetItem) return false;
+  if (sourceItem.id === targetItem.id) return false;
+  if (sourceItem.plantIdx !== targetItem.plantIdx) return false;
+  if ((sourceItem.stage || 1) !== (targetItem.stage || 1)) return false;
+  if ((targetItem.stage || 1) >= PLANT_STAGES) return false;
+  return true;
+}
+
+function feedPlantInBackpack(targetId, sourceId) {
+  if (targetId === sourceId) return false;
+  const targetIdx = gs.backpack.findIndex(function(b) { return b.id === targetId; });
+  const sourceIdx = gs.backpack.findIndex(function(b) { return b.id === sourceId; });
+  if (targetIdx === -1 || sourceIdx === -1) return false;
+
+  const target = gs.backpack[targetIdx];
+  const source = gs.backpack[sourceIdx];
+  if (!canBackpackFeedPlant(source, target)) {
+    addLog("背包吞噬失败：只能吞噬同名同阶且未满阶植物。", "dodge");
+    return false;
+  }
+
+  const stage = target.stage || 1;
+  const expNeeded = getBreakthroughExp()[stage - 1] || 3;
+  target.breakthroughExp = (target.breakthroughExp || 0) + 1;
+
+  gs.backpack.splice(sourceIdx, 1);
+  if (gs.selectedId === sourceId) gs.selectedId = null;
+
+  if (target.breakthroughExp >= expNeeded) {
+    target.breakthroughExp = 0;
+    target.stage = Math.min(PLANT_STAGES, stage + 1);
+    addLog("🌟 " + plantLibrary[target.plantIdx].name + " 在背包中吞噬进化为 " + STAGE_NAMES[target.stage - 1] + "！", "end");
+  } else {
+    addLog("🌿 " + plantLibrary[target.plantIdx].name + " 在背包中吞噬 +1 突破经验（" + target.breakthroughExp + "/" + expNeeded + "）", "end");
+  }
+
+  renderBackpack();
+  return true;
+}
+
 // Feed one grid plant into another (consuming the source)
 function feedPlantFromGrid(targetSlotIdx, sourceSlotIdx) {
   const target = gs.grid[targetSlotIdx];
@@ -331,6 +372,7 @@ export function renderGrid() {
 
       // Level badge
       const levelBadge = (plant.plantLevel || 0) > 0 ? '<div class="slot-level-badge">Lv.' + plant.plantLevel + '</div>' : '';
+      const atkBadge = '<div class="slot-atk-badge">⚔ ' + plant.atk + '</div>';
 
       // Upgrade button on plant card
       const upgradeCost = getPlantUpgradeCost(plant.plantLevel || 0);
@@ -354,7 +396,7 @@ export function renderGrid() {
       }
 
       el.innerHTML =
-        shieldBadge + stageBadge + goldBadge + levelBadge +
+        shieldBadge + stageBadge + goldBadge + levelBadge + atkBadge +
         '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
           '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
         '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
@@ -641,9 +683,19 @@ export function renderBackpack() {
   }).join("");
 
   elBackpackItems.querySelectorAll(".bp-item").forEach(function(el) {
+    function clearFeedClass() {
+      el.classList.remove("bp-feed-highlight");
+    }
+
     // Click to select for placement
     el.addEventListener("click", function() {
       const id = parseInt(el.dataset.id, 10);
+      if (gs.selectedId !== null && gs.selectedId !== id) {
+        if (feedPlantInBackpack(id, gs.selectedId)) {
+          renderGrid();
+          return;
+        }
+      }
       gs.selectedId = gs.selectedId === id ? null : id;
       renderBackpack();
       renderGrid();
@@ -663,12 +715,40 @@ export function renderBackpack() {
     el.addEventListener("dragend", function() {
       el.classList.remove("bp-dragging");
       _dragBpId = null;
+      elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
       // Clean up any lingering highlights
       elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
         s.classList.remove("slot-feed-highlight");
         s.classList.remove("slot-highlight");
         s.classList.remove("slot-swap-highlight");
       });
+    });
+
+    el.addEventListener("dragover", function(e) {
+      if (_dragBpId === null) return;
+      const targetId = parseInt(el.dataset.id, 10);
+      if (_dragBpId === targetId) return;
+      const source = gs.backpack.find(function(b) { return b.id === _dragBpId; });
+      const target = gs.backpack.find(function(b) { return b.id === targetId; });
+      if (!canBackpackFeedPlant(source, target)) return;
+      e.preventDefault();
+      el.classList.add("bp-feed-highlight");
+      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+    });
+
+    el.addEventListener("dragleave", clearFeedClass);
+
+    el.addEventListener("drop", function(e) {
+      e.preventDefault();
+      clearFeedClass();
+      const targetId = parseInt(el.dataset.id, 10);
+      if (_dragBpId !== null && _dragBpId !== targetId) {
+        if (feedPlantInBackpack(targetId, _dragBpId)) {
+          renderGrid();
+        }
+      }
+      _dragBpId = null;
+      elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
     });
   });
 }
