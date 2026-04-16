@@ -570,11 +570,19 @@ function levelFailed() {
   elBattleArea.querySelectorAll(".monster,.projectile-fx,.area-burst").forEach(function(e) { e.remove(); });
   gs.monsters = [];
   gs.mQueue = [];
+  // Remove crystal barrier visual
+  var crystalEl = elBattleArea.querySelector(".crystal-barrier");
+  if (crystalEl) crystalEl.remove();
+  // Remove dark fog
+  elCollect.classList.remove("fog-active");
   gs.phase = "idle";
   updateHUD();
   addLog("❌ 第 " + gs.round + " 关挑战失败！水晶被摧毁，僵尸突破了防线。", "crit");
-  addLog("点击「开始游戏」从第 " + gs.round + " 关重新开始挑战。", "round");
-  // Don't advance round, stay at current level
+  addLog("⏳ 3 秒后将重新开始第 " + gs.round + " 关…", "round");
+  // Auto restart the same level after a short delay
+  setTimeout(function() {
+    startDay();
+  }, 3000);
 }
 
 export function endNight() {

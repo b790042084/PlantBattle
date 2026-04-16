@@ -147,10 +147,11 @@ export const COMBAT_TICK       = 900;
 export const POISON_TICK       = 1200;
 export const MONSTER_ZONE_H    = 130;
 export const PLANTING_ROW_H    = 130;
-export const BATTLE_H          = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H; // 390
+export const CRYSTAL_ZONE_H    = 65;
+export const BATTLE_H          = MONSTER_ZONE_H + ROWS * PLANTING_ROW_H + CRYSTAL_ZONE_H; // 455
 export const Y_ROW                  = [1.0, 2.0];
-export const Y_CRYSTAL              = 2.5;  // Crystal position between planting zone and base
-export const Y_BASE                 = 3.0;
+export const Y_CRYSTAL              = 3.0;  // Crystal position below planting zone
+export const Y_BASE                 = 3.5;
 export const ROUND_SCALE_FACTOR     = 0.15;  // HP/ATK difficulty increase per round
 export const DEFENSE_REDUCTION      = 0.45;  // fraction of plant DEF applied to monster ATK
 export const POISON_DMG_MULTIPLIER  = 0.25;  // poison DoT = attacker.atk × this
