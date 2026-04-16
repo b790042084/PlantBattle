@@ -584,6 +584,32 @@ label {
   cursor: not-allowed;
   opacity: 0.6;
 }
+.slot-action-row {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+}
+.slot-sell-btn {
+  border: 0;
+  background: #e67700;
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  font-size: 9px;
+  line-height: 1.4;
+  transition: transform 100ms ease, filter 100ms ease;
+  white-space: nowrap;
+}
+.slot-sell-btn:hover:not(:disabled) { transform: scale(1.08); filter: brightness(1.08); }
+.slot-sell-btn:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
 
 .slot-img {
   width: 38px;
@@ -792,6 +818,22 @@ label {
 }
 .bp-stat { font-size: 9px; color: var(--muted); }
 .bp-exp { font-size: 9px; color: #f0a030; font-weight: 600; }
+.bp-sell-btn {
+  margin-top: 3px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  background: #e67700;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+.bp-sell-btn:hover {
+  filter: brightness(1.08);
+}
 
 /* ===== PLANT LIBRARY PANEL (collapsible) ===== */
 .library-panel {

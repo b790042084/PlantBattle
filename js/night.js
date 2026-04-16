@@ -31,8 +31,7 @@ function updateMonsterZoneStatus() {
     elMonsterZoneRemain.textContent = "剩余僵尸：--";
     return;
   }
-  const aliveCount = gs.monsters.reduce(function(sum, m) { return sum + (m.dead ? 0 : 1); }, 0);
-  const remaining = gs.phase === "night" ? (aliveCount + gs.mQueue.length) : 0;
+  const remaining = gs.phase === "night" ? (gs.monsters.length + gs.mQueue.length) : 0;
   elMonsterZoneLevel.textContent = "关卡：第 " + gs.round + " / " + waveList.length + " 关";
   elMonsterZoneRemain.textContent = "剩余僵尸：" + remaining;
 }

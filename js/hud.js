@@ -80,6 +80,10 @@ export function updateHUD() {
 let _dragBpId = null;      // backpack item id being dragged
 let _dragGridSlot = null;  // grid slot index being dragged (for grid-to-grid feed)
 
+function clearBackpackFeedHighlights() {
+  elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
+}
+
 // ─────────────────── Feed logic (shared by drag-drop) ─
 export function feedPlant(slotIdx, backpackId) {
   const plant = gs.grid[slotIdx];
@@ -300,6 +304,51 @@ function createBackpackItemFromGridPlant(plant) {
   };
 }
 
+function getBackpackSellValue(item) {
+  const pDef = plantLibrary[item.plantIdx];
+  const stage = item.stage || 1;
+  const level = item.plantLevel || 0;
+  const bExp = item.breakthroughExp || 0;
+  const base = Math.max(5, Math.floor((pDef.goldPerSec || 1) * 10));
+  const stageMult = 1 + (stage - 1) * 0.6;
+  const levelMult = 1 + level * 0.35;
+  return Math.max(1, Math.floor(base * stageMult * levelMult + bExp * 2));
+}
+
+function getGridPlantSellValue(plant) {
+  return getBackpackSellValue(createBackpackItemFromGridPlant(plant));
+}
+
+function sellBackpackPlant(id) {
+  const bpIdx = gs.backpack.findIndex(function(b) { return b.id === id; });
+  if (bpIdx === -1) return;
+  const item = gs.backpack[bpIdx];
+  const pDef = plantLibrary[item.plantIdx];
+  const gain = getBackpackSellValue(item);
+  gs.backpack.splice(bpIdx, 1);
+  if (gs.selectedId === id) gs.selectedId = null;
+  gs.gold += gain;
+  addLog("💰 已出售背包植物 " + pDef.name + "，获得 " + gain + " 金钱", "end");
+  renderBackpack();
+  updateHUD();
+}
+
+function sellGridPlant(slotIdx) {
+  const plant = gs.grid[slotIdx];
+  if (!plant) return;
+  if (plant.isDormant) {
+    addLog("休眠植物无法出售。", "dodge");
+    return;
+  }
+  const gain = getGridPlantSellValue(plant);
+  const name = plant.name;
+  gs.grid[slotIdx] = null;
+  gs.gold += gain;
+  addLog("💰 已出售种植区植物 " + name + "，获得 " + gain + " 金钱", "end");
+  renderGrid();
+  updateHUD();
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -379,6 +428,9 @@ export function renderGrid() {
       const canAfford = gs.gold >= upgradeCost;
       const upgradeBtn = '<button class="slot-upgrade-btn" data-slot="' + i + '"' +
         (canAfford && !plant.isDormant ? '' : ' disabled') + '>⬆' + upgradeCost + '💰</button>';
+      const sellValue = getGridPlantSellValue(plant);
+      const sellBtn = '<button class="slot-sell-btn" data-sell-slot="' + i + '"' +
+        (plant.isDormant ? ' disabled' : '') + '>💸' + sellValue + '</button>';
 
       // Breakthrough EXP / progress badge
       let breakthroughBadge = '';
@@ -400,7 +452,7 @@ export function renderGrid() {
         '<img class="slot-img" src="' + img + '" alt="' + escHtml(pDef.name) +
           '" onerror="this.onerror=null;this.src=\'' + fb + '\'">' +
         '<div class="slot-name">'   + escHtml(pDef.name) + "</div>" +
-        upgradeBtn +
+        '<div class="slot-action-row">' + upgradeBtn + sellBtn + '</div>' +
         breakthroughBadge +
         '<div class="slot-hpbar"><div class="slot-hpfill ' + cls + '" style="width:' + (ratio*100) + '%"></div></div>' +
         '<div class="slot-hptext">' + Math.max(0,plant.hp) + "/" + plant.maxHp +
@@ -412,6 +464,13 @@ export function renderGrid() {
         upgradeEl.addEventListener("click", function(e) {
           e.stopPropagation();
           upgradePlantOnGrid(i);
+        });
+      }
+      const sellEl = el.querySelector(".slot-sell-btn");
+      if (sellEl) {
+        sellEl.addEventListener("click", function(e) {
+          e.stopPropagation();
+          sellGridPlant(i);
         });
       }
 
@@ -665,6 +724,7 @@ export function renderBackpack() {
 
     const effectiveHp  = Math.floor(p.hp  * stageRatio * levelMult);
     const effectiveAtk = Math.floor(p.atk * stageRatio * levelMult);
+    const sellValue = getBackpackSellValue(item);
 
     // Breakthrough EXP info
     const bExp = item.breakthroughExp || 0;
@@ -679,14 +739,11 @@ export function renderBackpack() {
       (plantLevel > 0 ? '<div class="bp-level">Lv.' + plantLevel + '</div>' : '') +
       '<div class="bp-stat">HP ' + effectiveHp + ' ATK ' + effectiveAtk + "</div>" +
       bExpInfo +
+      '<button class="bp-sell-btn" data-sell-id="' + item.id + '">出售 +' + sellValue + '💰</button>' +
       "</div>";
   }).join("");
 
   elBackpackItems.querySelectorAll(".bp-item").forEach(function(el) {
-    function clearFeedClass() {
-      el.classList.remove("bp-feed-highlight");
-    }
-
     // Click to select for placement
     el.addEventListener("click", function() {
       const id = parseInt(el.dataset.id, 10);
@@ -715,7 +772,7 @@ export function renderBackpack() {
     el.addEventListener("dragend", function() {
       el.classList.remove("bp-dragging");
       _dragBpId = null;
-      elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
+      clearBackpackFeedHighlights();
       // Clean up any lingering highlights
       elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
         s.classList.remove("slot-feed-highlight");
@@ -736,11 +793,13 @@ export function renderBackpack() {
       if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
     });
 
-    el.addEventListener("dragleave", clearFeedClass);
+    el.addEventListener("dragleave", function() {
+      el.classList.remove("bp-feed-highlight");
+    });
 
     el.addEventListener("drop", function(e) {
       e.preventDefault();
-      clearFeedClass();
+      el.classList.remove("bp-feed-highlight");
       const targetId = parseInt(el.dataset.id, 10);
       if (_dragBpId !== null && _dragBpId !== targetId) {
         if (feedPlantInBackpack(targetId, _dragBpId)) {
@@ -748,7 +807,15 @@ export function renderBackpack() {
         }
       }
       _dragBpId = null;
-      elBackpackItems.querySelectorAll(".bp-feed-highlight").forEach(function(s) { s.classList.remove("bp-feed-highlight"); });
+      clearBackpackFeedHighlights();
+    });
+  });
+
+  elBackpackItems.querySelectorAll(".bp-sell-btn").forEach(function(btn) {
+    btn.addEventListener("click", function(e) {
+      e.stopPropagation();
+      const id = parseInt(btn.dataset.sellId, 10);
+      sellBackpackPlant(id);
     });
   });
 }
