@@ -729,6 +729,8 @@ label {
 .backpack-items {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
+  align-content: flex-start;
   gap: 8px;
   min-height: 52px;
 }
@@ -1324,4 +1326,3 @@ label {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
   margin-top: 2px;
 }
-
