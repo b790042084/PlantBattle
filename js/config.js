@@ -69,17 +69,64 @@ plantSpawnConfigs.forEach(sanitizePlantSpawn);
 
 // ─────────────────── Wave List Config ────────────────
 // waveList[i] = array of { monsterIdx, count } for level i+1
+// 40 levels total with 4 zombie types:
+// Levels 1-9: Type 0 zombies (1, 2, 3... up to 9)
+// Level 10: 1 Type 1 zombie (boss) + 9 Type 0 zombies
+// Levels 11-19: Type 1 zombies (1, 2, 3... up to 9)
+// Level 20: 1 Type 2 zombie (boss) + 9 Type 1 zombies
+// Levels 21-29: Type 2 zombies (1, 2, 3... up to 9)
+// Level 30: 1 Type 3 zombie (boss) + 9 Type 2 zombies
+// Levels 31-39: Type 3 zombies (1, 2, 3... up to 9)
+// Level 40: All 4 types mixed final boss level
 export const waveList = [
+  // Levels 1-9: Type 0 (普通僵尸)
+  [{ monsterIdx: 0, count: 1 }],
+  [{ monsterIdx: 0, count: 2 }],
   [{ monsterIdx: 0, count: 3 }],
+  [{ monsterIdx: 0, count: 4 }],
   [{ monsterIdx: 0, count: 5 }],
-  [{ monsterIdx: 0, count: 4 }, { monsterIdx: 1, count: 2 }],
-  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 1, count: 3 }],
-  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 1, count: 2 }, { monsterIdx: 2, count: 1 }],
-  [{ monsterIdx: 0, count: 2 }, { monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 2 }],
-  [{ monsterIdx: 0, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 1 }],
-  [{ monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 2 }],
-  [{ monsterIdx: 0, count: 2 }, { monsterIdx: 1, count: 2 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 2 }],
-  [{ monsterIdx: 1, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 3, count: 3 }],
+  [{ monsterIdx: 0, count: 6 }],
+  [{ monsterIdx: 0, count: 7 }],
+  [{ monsterIdx: 0, count: 8 }],
+  [{ monsterIdx: 0, count: 9 }],
+  // Level 10: Boss level - 1 Type 1 + 9 Type 0
+  [{ monsterIdx: 1, count: 1 }, { monsterIdx: 0, count: 9 }],
+  // Levels 11-19: Type 1 (快速僵尸)
+  [{ monsterIdx: 1, count: 1 }],
+  [{ monsterIdx: 1, count: 2 }],
+  [{ monsterIdx: 1, count: 3 }],
+  [{ monsterIdx: 1, count: 4 }],
+  [{ monsterIdx: 1, count: 5 }],
+  [{ monsterIdx: 1, count: 6 }],
+  [{ monsterIdx: 1, count: 7 }],
+  [{ monsterIdx: 1, count: 8 }],
+  [{ monsterIdx: 1, count: 9 }],
+  // Level 20: Boss level - 1 Type 2 + 9 Type 1
+  [{ monsterIdx: 2, count: 1 }, { monsterIdx: 1, count: 9 }],
+  // Levels 21-29: Type 2 (铁桶僵尸)
+  [{ monsterIdx: 2, count: 1 }],
+  [{ monsterIdx: 2, count: 2 }],
+  [{ monsterIdx: 2, count: 3 }],
+  [{ monsterIdx: 2, count: 4 }],
+  [{ monsterIdx: 2, count: 5 }],
+  [{ monsterIdx: 2, count: 6 }],
+  [{ monsterIdx: 2, count: 7 }],
+  [{ monsterIdx: 2, count: 8 }],
+  [{ monsterIdx: 2, count: 9 }],
+  // Level 30: Boss level - 1 Type 3 + 9 Type 2
+  [{ monsterIdx: 3, count: 1 }, { monsterIdx: 2, count: 9 }],
+  // Levels 31-39: Type 3 (巨型僵尸)
+  [{ monsterIdx: 3, count: 1 }],
+  [{ monsterIdx: 3, count: 2 }],
+  [{ monsterIdx: 3, count: 3 }],
+  [{ monsterIdx: 3, count: 4 }],
+  [{ monsterIdx: 3, count: 5 }],
+  [{ monsterIdx: 3, count: 6 }],
+  [{ monsterIdx: 3, count: 7 }],
+  [{ monsterIdx: 3, count: 8 }],
+  [{ monsterIdx: 3, count: 9 }],
+  // Level 40: Final boss - All types mixed
+  [{ monsterIdx: 3, count: 3 }, { monsterIdx: 2, count: 3 }, { monsterIdx: 1, count: 3 }, { monsterIdx: 0, count: 3 }],
 ];
 
 export function sanitizeWaveEntry(entry) {
@@ -183,6 +230,9 @@ export function getBreakthroughTime() { return gameConfig.breakthroughTime; }
 export const PLAYER_BASE_CARRY   = 3;         // Default max carry capacity
 export const CARRY_UPGRADE_COST  = [50, 120, 200, 300, 500]; // Cost per carry upgrade level
 export const CARRY_UPGRADE_BONUS = 1;         // +1 carry per upgrade
+
+export const SPEED_UPGRADE_COST  = [40, 100, 180, 280, 400]; // Cost per speed upgrade level
+export const SPEED_UPGRADE_BONUS = 0.15;      // +0.15 speed per upgrade (30% increase)
 
 export function getZoneBaseSlots() { return gameConfig.zoneBaseSlots; }
 export const ZONE_UPGRADE_COST      = [80, 150, 250, 400]; // Cost per zone level

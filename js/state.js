@@ -92,7 +92,9 @@ export const gs = {
     y: 95,  // percentage (starting at bottom)
     row: 14, // which stripe row (0-14) - starting at bottom
     size: 40, // px
-    speed: 0.8, // percentage per frame at 60fps
+    speed: 0.5, // percentage per frame at 60fps (reduced from 0.8)
+    baseSpeed: 0.5, // base speed for upgrades
+    speedLevel: 0, // current speed upgrade level
     isJumping: false,
     jumpProgress: 0,
     maxCarry: PLAYER_BASE_CARRY,

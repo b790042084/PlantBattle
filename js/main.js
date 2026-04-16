@@ -7,7 +7,7 @@ import {
 } from "./config.js";
 import { sanitizePlant } from "./utils.js";
 import { gs, elLog, elVersion } from "./state.js";
-import { addLog, initGrid, renderBackpack, updateHUD, upgradeCarry, upgradeZone, upgradeCrystal } from "./hud.js";
+import { addLog, initGrid, renderBackpack, updateHUD, upgradeCarry, upgradeSpeed, upgradeZone, upgradeCrystal } from "./hud.js";
 import { startDay } from "./day.js";
 import { fullReset } from "./night.js";
 import {
@@ -56,6 +56,10 @@ document.getElementById("btnClearLog").addEventListener("click", function() {
 // ─────────────────── Shop button handlers ────────────
 document.getElementById("btnUpgradeCarry").addEventListener("click", function() {
   upgradeCarry();
+});
+
+document.getElementById("btnUpgradeSpeed").addEventListener("click", function() {
+  upgradeSpeed();
 });
 
 document.getElementById("btnUpgradeZone").addEventListener("click", function() {

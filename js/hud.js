@@ -4,6 +4,7 @@ import {
   LANES, SLOTS, plantLibrary,
   STAGE_NAMES, STAGE_RATIOS, PLANT_STAGES,
   PLAYER_BASE_CARRY, CARRY_UPGRADE_COST, CARRY_UPGRADE_BONUS,
+  SPEED_UPGRADE_COST, SPEED_UPGRADE_BONUS,
   ZONE_UPGRADE_COST, ZONE_UPGRADE_SLOTS,
   gameConfig,
   getBreakthroughExp, getBreakthroughTime,
@@ -699,6 +700,22 @@ export function upgradeCarry() {
   updateHUD();
 }
 
+export function getSpeedUpgradeCost() {
+  const lvl = gs.player.speedLevel;
+  return lvl < SPEED_UPGRADE_COST.length ? SPEED_UPGRADE_COST[lvl] : -1;
+}
+
+export function upgradeSpeed() {
+  const cost = getSpeedUpgradeCost();
+  if (cost < 0) { addLog("移动速度已达最大等级！", "dodge"); return; }
+  if (gs.gold < cost) { addLog("金钱不足！需要 " + cost + " 金钱", "dodge"); return; }
+  gs.gold -= cost;
+  gs.player.speedLevel += 1;
+  gs.player.speed = gs.player.baseSpeed + gs.player.speedLevel * SPEED_UPGRADE_BONUS;
+  addLog("移动速度升级！当前速度：" + gs.player.speed.toFixed(2), "end");
+  updateHUD();
+}
+
 export function upgradeZone() {
   const cost = getZoneUpgradeCost();
   if (cost < 0) { addLog("解锁格子已达最大等级！", "dodge"); return; }
@@ -776,6 +793,15 @@ export function updateShopDisplay() {
   const cc = getCarryUpgradeCost();
   if (carryCost) carryCost.textContent = cc >= 0 ? cc : "MAX";
   if (carryBtn) carryBtn.disabled = cc < 0 || gs.gold < cc;
+
+  // Speed upgrade
+  const speedLvl = document.getElementById("speedLevelDisplay");
+  const speedCost = document.getElementById("speedCostDisplay");
+  const speedBtn = document.getElementById("btnUpgradeSpeed");
+  if (speedLvl) speedLvl.textContent = "等级 " + gs.player.speedLevel + " · 当前速度 " + gs.player.speed.toFixed(2);
+  const sc = getSpeedUpgradeCost();
+  if (speedCost) speedCost.textContent = sc >= 0 ? sc : "MAX";
+  if (speedBtn) speedBtn.disabled = sc < 0 || gs.gold < sc;
 
   // Zone upgrade
   const zoneLvl = document.getElementById("zoneLevelDisplay");
