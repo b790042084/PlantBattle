@@ -230,10 +230,12 @@ function collectPlant(id) {
   sp.el.classList.add("collected");
   setTimeout(function() { sp.el.remove(); }, 350);
   gs.spawned.splice(idx, 1);
-  // Add to carried (above head) with stage 1 (seedling)
-  gs.carried.push({ id: uid(), plantIdx: sp.plantIdx, stage: 1, plantLevel: 0 });
+  // Add to carried (above head) with stage 1 (seedling) and plantLevel matching current round
+  const plantLevel = Math.max(0, gs.round - 1); // Level = round - 1 (round 1 = level 0, round 2 = level 1, etc.)
+  gs.carried.push({ id: uid(), plantIdx: sp.plantIdx, stage: 1, plantLevel: plantLevel });
   renderCarriedPlants();
-  addLog("拾取了 " + pDef.name + "（幼苗）！（总容量 " + (gs.backpack.length + gs.carried.length) + "/" + gs.player.maxCarry + "）", "end");
+  const levelText = plantLevel > 0 ? " Lv." + plantLevel : "";
+  addLog("拾取了 " + pDef.name + "（幼苗）" + levelText + "！（总容量 " + (gs.backpack.length + gs.carried.length) + "/" + gs.player.maxCarry + "）", "end");
 }
 
 // ─────────────────── Player movement ─────────────────
