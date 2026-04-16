@@ -49,9 +49,15 @@ export function renderCarriedPlants() {
 
 export function depositCarriedPlants() {
   if (gs.carried.length === 0) return;
-  const names = gs.carried.map(function(c) { return plantLibrary[c.plantIdx].name; });
-  const toDeposit = gs.carried.slice();
-  gs.carried = [];
+  const freeSpace = Math.max(0, gs.player.maxCarry - gs.backpack.length);
+  if (freeSpace <= 0) {
+    addLog("背包已满（上限 " + gs.player.maxCarry + "），无法存入更多植物！", "dodge");
+    return;
+  }
+  const toDeposit = gs.carried.slice(0, freeSpace);
+  const remain = gs.carried.slice(freeSpace);
+  const names = toDeposit.map(function(c) { return plantLibrary[c.plantIdx].name; });
+  gs.carried = remain;
   renderCarriedPlants();
 
   // Animate each plant flying from player to backpack button
@@ -101,6 +107,9 @@ export function depositCarriedPlants() {
   });
 
   addLog("回到出生区！存入背包：" + names.join("、"), "end");
+  if (remain.length > 0) {
+    addLog("背包容量不足，仍有 " + remain.length + " 个植物待存入。", "dodge");
+  }
 }
 
 export function updatePlayerPosition() {

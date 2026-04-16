@@ -212,6 +212,52 @@ function swapPlantsInGrid(slotA, slotB) {
   renderGrid();
 }
 
+function createGridPlantFromBackpackItem(item, idx) {
+  const pDef  = plantLibrary[item.plantIdx];
+  const baseInterval = pDef.attackMode === "melee" ? 2200 : pDef.attackMode === "area" ? 2000 : 1600;
+  const stage = item.stage || 1;
+  const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
+  const plantLevel = item.plantLevel || 0;
+  const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
+  const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
+  const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
+  const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
+  const cols = LANES;
+  return Object.assign({}, pDef, {
+    id:             uid(),
+    plantIdx:       item.plantIdx,
+    maxHp:          effectiveHp,
+    hp:             effectiveHp,
+    atk:            effectiveAtk,
+    df:             effectiveDf,
+    shield:         0,
+    poisonTurns:    0,
+    poisonDmg:      0,
+    slowTurns:      0,
+    currentCd:      0,
+    lane:           idx % cols,
+    row:            Math.floor(idx / cols),
+    slotIdx:        idx,
+    lastAttackTime: 0,
+    attackInterval: baseInterval,
+    stage:          stage,
+    plantLevel:     plantLevel,
+    breakthroughExp:   item.breakthroughExp || 0,
+    isBreakingThrough: false,
+    breakthroughTimer: 0,
+  });
+}
+
+function createBackpackItemFromGridPlant(plant) {
+  return {
+    id: uid(),
+    plantIdx: plant.plantIdx,
+    stage: plant.stage || 1,
+    plantLevel: plant.plantLevel || 0,
+    breakthroughExp: plant.breakthroughExp || 0
+  };
+}
+
 // ─────────────────── Grid ────────────────────────────
 export function initGrid() {
   elPlantingGrid.innerHTML = "";
@@ -364,13 +410,36 @@ export function onSlotClick(e) {
   const plant = gs.grid[idx];
 
   if (plant) {
+    if (gs.selectedId) {
+      const bpIdx = gs.backpack.findIndex(function(b) { return b.id === gs.selectedId; });
+      if (bpIdx !== -1) {
+        const selectedItem = gs.backpack[bpIdx];
+        if (!feedPlant(idx, selectedItem.id)) {
+          const oldPlant = gs.grid[idx];
+          gs.backpack.splice(bpIdx, 1, createBackpackItemFromGridPlant(oldPlant));
+          gs.grid[idx] = createGridPlantFromBackpackItem(selectedItem, idx);
+          addLog("🔄 已与种植区植物交换位置", "end");
+          gs.selectedId = null;
+          renderBackpack();
+          renderGrid();
+        }
+      } else {
+        gs.selectedId = null;
+        renderBackpack();
+      }
+      return;
+    }
     if (plant.isDormant) {
       addLog(plant.name + " 正在休眠中，无法取回！", "dodge");
       return;
     }
+    if (gs.backpack.length >= gs.player.maxCarry) {
+      addLog("背包已满（上限 " + gs.player.maxCarry + "），无法取回植物！", "dodge");
+      return;
+    }
     // Click on a planted plant → pick it up back to backpack
     gs.grid[idx] = null;
-    gs.backpack.push({ id: uid(), plantIdx: plant.plantIdx, stage: plant.stage || 1, plantLevel: plant.plantLevel || 0, breakthroughExp: plant.breakthroughExp || 0 });
+    gs.backpack.push(createBackpackItemFromGridPlant(plant));
     addLog(plant.name + " 已取回到背包", "dodge");
     renderBackpack();
     renderGrid();
@@ -383,44 +452,12 @@ export function onSlotClick(e) {
 
   const item  = gs.backpack.splice(bpIdx, 1)[0];
   const pDef  = plantLibrary[item.plantIdx];
-  const baseInterval = pDef.attackMode === "melee" ? 2200 : pDef.attackMode === "area" ? 2000 : 1600;
-
-  // Apply growth stage ratio and plant level multiplier
   const stage = item.stage || 1;
-  const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
   const plantLevel = item.plantLevel || 0;
-  const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
-  const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
-  const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
-  const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
-
-  const cols = LANES;
-  gs.grid[idx] = Object.assign({}, pDef, {
-    id:             uid(),
-    plantIdx:       item.plantIdx,
-    maxHp:          effectiveHp,
-    hp:             effectiveHp,
-    atk:            effectiveAtk,
-    df:             effectiveDf,
-    shield:         0,
-    poisonTurns:    0,
-    poisonDmg:      0,
-    slowTurns:      0,
-    currentCd:      0,
-    lane:           idx % cols,
-    row:            Math.floor(idx / cols),
-    slotIdx:        idx,
-    lastAttackTime: 0,
-    attackInterval: baseInterval,
-    stage:          stage,
-    plantLevel:     plantLevel,
-    breakthroughExp:   item.breakthroughExp || 0,
-    isBreakingThrough: false,
-    breakthroughTimer: 0,
-  });
+  gs.grid[idx] = createGridPlantFromBackpackItem(item, idx);
 
   gs.selectedId = null;
-  addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % cols + 1) + "-" + (Math.floor(idx / cols) + 1) + " 位置", "end");
+  addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % LANES + 1) + "-" + (Math.floor(idx / LANES) + 1) + " 位置", "end");
   renderBackpack();
   renderGrid();
 }
@@ -485,6 +522,8 @@ function onSlotDragOver(e) {
   const bpItem = gs.backpack.find(function(b) { return b.id === _dragBpId; });
   if (canFeedPlant(bpItem, plant)) {
     e.currentTarget.classList.add("slot-feed-highlight");
+  } else {
+    e.currentTarget.classList.add("slot-swap-highlight");
   }
 }
 
@@ -526,8 +565,20 @@ function onSlotDrop(e) {
   if (_dragBpId === null) return;
 
   if (plant) {
-    // Try to feed
-    feedPlant(idx, _dragBpId);
+    // Try to feed first; otherwise swap backpack item with planted one
+    if (!feedPlant(idx, _dragBpId)) {
+      const bpIdx = gs.backpack.findIndex(function(b) { return b.id === _dragBpId; });
+      if (bpIdx !== -1) {
+        const oldPlant = gs.grid[idx];
+        const selectedItem = gs.backpack[bpIdx];
+        gs.backpack.splice(bpIdx, 1, createBackpackItemFromGridPlant(oldPlant));
+        gs.grid[idx] = createGridPlantFromBackpackItem(selectedItem, idx);
+        gs.selectedId = null;
+        addLog("🔄 已与种植区植物交换位置", "end");
+        renderBackpack();
+        renderGrid();
+      }
+    }
   } else {
     // Place plant on empty slot via drag
     const bpIdx = gs.backpack.findIndex(function(b) { return b.id === _dragBpId; });
@@ -537,40 +588,11 @@ function onSlotDrop(e) {
       // Inline placement
       const item  = gs.backpack.splice(bpIdx, 1)[0];
       const pDef  = plantLibrary[item.plantIdx];
-      const baseInterval = pDef.attackMode === "melee" ? 2200 : pDef.attackMode === "area" ? 2000 : 1600;
       const stage = item.stage || 1;
-      const stageRatio = STAGE_RATIOS[Math.min(stage, PLANT_STAGES) - 1] || 1;
       const plantLevel = item.plantLevel || 0;
-      const levelMult = 1 + plantLevel * getPlantUpgradeStatMult();
-      const effectiveHp  = Math.floor(pDef.hp  * stageRatio * levelMult);
-      const effectiveAtk = Math.floor(pDef.atk * stageRatio * levelMult);
-      const effectiveDf  = Math.floor(pDef.df  * stageRatio * levelMult);
-      const cols = LANES;
-      gs.grid[idx] = Object.assign({}, pDef, {
-        id:             uid(),
-        plantIdx:       item.plantIdx,
-        maxHp:          effectiveHp,
-        hp:             effectiveHp,
-        atk:            effectiveAtk,
-        df:             effectiveDf,
-        shield:         0,
-        poisonTurns:    0,
-        poisonDmg:      0,
-        slowTurns:      0,
-        currentCd:      0,
-        lane:           idx % cols,
-        row:            Math.floor(idx / cols),
-        slotIdx:        idx,
-        lastAttackTime: 0,
-        attackInterval: baseInterval,
-        stage:          stage,
-        plantLevel:     plantLevel,
-        breakthroughExp:   item.breakthroughExp || 0,
-        isBreakingThrough: false,
-        breakthroughTimer: 0,
-      });
+      gs.grid[idx] = createGridPlantFromBackpackItem(item, idx);
       gs.selectedId = null;
-      addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % cols + 1) + "-" + (Math.floor(idx / cols) + 1) + " 位置", "end");
+      addLog(pDef.name + "(" + STAGE_NAMES[stage - 1] + (plantLevel > 0 ? " Lv." + plantLevel : "") + ") 已种植到 " + (idx % LANES + 1) + "-" + (Math.floor(idx / LANES) + 1) + " 位置", "end");
       renderBackpack();
       renderGrid();
     }
@@ -641,9 +663,10 @@ export function renderBackpack() {
       el.classList.remove("bp-dragging");
       _dragBpId = null;
       // Clean up any lingering highlights
-      elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight").forEach(function(s) {
+      elPlantingGrid.querySelectorAll(".slot-feed-highlight, .slot-highlight, .slot-swap-highlight").forEach(function(s) {
         s.classList.remove("slot-feed-highlight");
         s.classList.remove("slot-highlight");
+        s.classList.remove("slot-swap-highlight");
       });
     });
   });

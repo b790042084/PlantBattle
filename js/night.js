@@ -136,7 +136,8 @@ function nightLoop(ts) {
         monsterAttackCrystal(m, ts);
       }
     } else {
-      const effectiveSpeed = ts < m.slowUntil ? m.speed * 0.35 : m.speed;
+      const baseSpeed = Math.max(0.08, m.speed || 0);
+      const effectiveSpeed = ts < m.slowUntil ? Math.max(0.03, baseSpeed * 0.35) : baseSpeed;
       m.y += effectiveSpeed * dt;
 
       let blocked = false;
